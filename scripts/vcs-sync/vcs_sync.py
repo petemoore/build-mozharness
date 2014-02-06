@@ -55,14 +55,19 @@ class HgGitScript(VirtualenvMixin, TooltoolMixin, TransferMixin, VCSSyncScript):
     mapfile_binary_search = None
     all_repos = None
     successful_repos = []
-    config_options = [[
-        ["--no-check-incoming", ],
-        {"action": "store_false",
-         "dest": "check_incoming",
-         "default": True,
-         "help": "Don't check for incoming changesets"
-         }
-    ]]
+    config_options = [
+        [["--no-check-incoming"], {
+            "action": "store_false",
+            "dest": "check_incoming",
+            "default": True,
+            "help": "Don't check for incoming changesets"
+        }],
+        [["--hg-options"], {
+            "action": "store",
+            "dest": "hg_options",
+            "help": "Additional options to pass to hg commands"
+        }]
+    ]
 
     def __init__(self, require_config_file=True):
         super(HgGitScript, self).__init__(
@@ -608,7 +613,8 @@ intree=1
     def _query_hg_exe(self):
         """Returns the hg executable command
         """
-        return [os.path.join(self.query_virtualenv_path(), "bin", "hg"), "--config", "web.cacerts=/Users/pmoore/ca-bundle.crt"]
+    #   return [os.path.join(self.query_virtualenv_path(), "bin", "hg"), "--config", "web.cacerts=/Users/pmoore/ca-bundle.crt"]
+        return [os.path.join(self.query_virtualenv_path(), "bin", "hg")]
 
     def query_branches(self, branch_config, repo_path, vcs='hg'):
         """ Given a branch_config of branches and branch_regexes, return

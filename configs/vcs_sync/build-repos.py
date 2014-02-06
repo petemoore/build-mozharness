@@ -12,28 +12,37 @@ hostname = socket.gethostname()
 #import socket
 #hostname = socket.gethostname()
 
-config = {
-    "log_name": "pete",
-    "log_max_rotate": 99,
-    "repos": [{
-        "repo": "https://hg.mozilla.org/users/hwine_mozilla.com/repo-sync-tools",
-        "vcs": "hg",
-    }],
-    "job_name": "pete",
-    "conversion_dir": "pete",
-    "env": {
-        "PATH": "%(PATH)s:/usr/libexec/git-core",
-    },
-    "conversion_repos": [{
-        "repo": "https://hg.mozilla.org/build/puppet",
+build_repos = (
+    'autoland',
+    'buildapi',
+    'buildbot-configs',
+    'buildbotcustom',
+    'cloud-tools',
+    'mozharness',
+    'opsi-package-sources',
+    'partner-repacks',
+    'preproduction',
+    'puppet',
+    'puppet-manifests',
+    'rpm-sources',
+    'talos',
+    'tools'
+)
+
+conversion_repos = []
+remote_targets = []
+
+for repo in build_repos:
+    conversion_repos.append({
+        "repo": "https://hg.mozilla.org/build/%s" % repo,
         "revision": "default",
-        "repo_name": "pete",
+        "repo_name": "build-%s" % repo,
         "targets": [{
-            "target_dest": "pete/.git",
+            "target_dest": "build-%s/.git" % repo,
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "pete-imac",
+            "target_dest": "build-%s" % repo,
         }],
         "vcs": "hg",
         "branch_config": {
@@ -42,15 +51,29 @@ config = {
             },
         },
         "tag_config": {},
-    }],
-    "remote_targets": {
-        "pete-imac": {
-            "repo": "ssh://imac/srv/gitosis/repositories/pete.git",
+    })
+    remote_targets.append({
+        "build-%s" % repo: {
+            "repo": "ssh://imac/Users/petermoore/build-repos/build-%s.git" % repo,
             "ssh_key": "~/.ssh/id_rsa",
             "vcs": "git",
-        },
-    },
+        }
+    })
 
+config = {
+    "log_name": "build-repos",
+    "log_max_rotate": 99,
+    "repos": [{
+        "repo": "https://hg.mozilla.org/users/hwine_mozilla.com/repo-sync-tools",
+        "vcs": "hg",
+    }],
+    "job_name": "build-repos",
+    "conversion_dir": "build-repos",
+    "env": {
+        "PATH": "%(PATH)s:/usr/libexec/git-core",
+    },
+    "conversion_repos": conversion_repos,
+    "remote_targets": remote_targets,
     "exes": {
         # bug 828140 - shut https warnings up.
         # http://kiln.stackexchange.com/questions/2816/mercurial-certificate-warning-certificate-not-verified-web-cacerts
