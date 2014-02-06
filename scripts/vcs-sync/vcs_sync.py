@@ -436,7 +436,7 @@ intree=1
             covers git pushes.
             """
         dirs = self.query_abs_dirs()
-        conversion_dir = self.query_abs_conversion_dir(repo_config)
+        conversion_dir = os.path.join(self.query_abs_conversion_dir(repo_config), repo_config['repo_name'])
         if not conversion_dir:
             self.fatal("No conversion_dir for %s!" % repo_config['repo_name'])
         source_dir = os.path.join(dirs['abs_source_dir'], repo_config['repo_name'])
@@ -613,8 +613,8 @@ intree=1
     def _query_hg_exe(self):
         """Returns the hg executable command
         """
-    #   return [os.path.join(self.query_virtualenv_path(), "bin", "hg"), "--config", "web.cacerts=/Users/pmoore/ca-bundle.crt"]
-        return [os.path.join(self.query_virtualenv_path(), "bin", "hg")]
+        #TODO: fix the hardcarded reference below to pmoore crt file...
+        return [os.path.join(self.query_virtualenv_path(), "bin", "hg"), "--config", "web.cacerts=/Users/pmoore/ca-bundle.crt"]
 
     def query_branches(self, branch_config, repo_path, vcs='hg'):
         """ Given a branch_config of branches and branch_regexes, return
@@ -743,7 +743,7 @@ intree=1
         for repo_config in self.query_all_repos():
             repo_name = repo_config['repo_name']
             source = os.path.join(dirs['abs_source_dir'], repo_name)
-            dest = self.query_abs_conversion_dir(repo_config)
+            dest = os.path.join(self.query_abs_conversion_dir(repo_config), repo_name)
             if not dest:
                 self.fatal("No conversion_dir for %s!" % repo_name)
             if not os.path.exists(dest):

@@ -30,7 +30,7 @@ build_repos = (
 )
 
 conversion_repos = []
-remote_targets = []
+remote_targets = {}
 
 for repo in build_repos:
     conversion_repos.append({
@@ -52,13 +52,11 @@ for repo in build_repos:
         },
         "tag_config": {},
     })
-    remote_targets.append({
-        "build-%s" % repo: {
-            "repo": "ssh://imac/Users/petermoore/build-repos/build-%s.git" % repo,
-            "ssh_key": "~/.ssh/id_rsa",
-            "vcs": "git",
-        }
-    })
+    remote_targets["build-%s" % repo] = {
+        "repo": "ssh://imac/Users/petermoore/build-repos/build-%s.git" % repo,
+        "ssh_key": "~/.ssh/id_rsa",
+        "vcs": "git",
+    }
 
 config = {
     "log_name": "build-repos",
