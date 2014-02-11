@@ -608,24 +608,12 @@ intree=1
     def _query_hg_exe(self):
         """Returns the hg executable command as a list
         """
-        # Backwards compatibility: if "hg" is set in "exes" section of config use that.
-        # The disadvantage of this approach is it breaks the command line options for
-        # --work-dir and --venv-path and --virtualenv-path. Recommend using the
-        # alternative mechanism in "else" clause further below.
-        hg_exe_in_config = self.config.get("exes", {}).get("hg", None)
-        if hg_exe_in_config is not None:
-            exe_command = list(hg_exe_in_config)
-
-        # This new approach respects --work-dir and --venv-path and --virtualenv-path
-        # and can be used, simply by not specifying an "hg" entry in "exes" of config
-        # but instead using "hg_options" entry to specify just the hg command line
-        # options. The hg path is taken from virtualenv config instead.
-        else:
-            exe_command = [os.path.join(self.query_virtualenv_path(), "bin", "hg")]
+        # If "hg" is set in "exes" section of config use that.
+        # If not, get path from self.query_virtualenv_path() method
+        # (respects --work-dir and --venv-path and --virtualenv-path).
+        exe_command = self.query_exe('hg', return_type="list", default = [os.path.join(self.query_virtualenv_path(), "bin", "hg")])
             
-        # please note "hg_options" works even if you use "exes" dictionary with "hg"
-        # entry, but if not specified, returns an empty tuple, adding no results to
-        # returned list
+        # possible additional command line options can be specified in "hg_options" of self.config
         hg_options = self.config.get("hg_options", ())
         exe_command.extend(hg_options)
         return exe_command
