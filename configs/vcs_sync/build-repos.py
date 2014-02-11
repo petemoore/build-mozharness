@@ -41,8 +41,8 @@ for repo in build_repos:
             "target_dest": "build-%s/.git" % repo,
             "vcs": "git",
             "test_push": True,
-        }, {
-            "target_dest": "build-%s-imac" % repo,
+#        }, {
+#            "target_dest": "build-%s-imac" % repo,
         }, {
             "target_dest": "build-%s-github" % repo,
         }],
