@@ -35,14 +35,11 @@ remote_targets = {}
 for repo in build_repos:
     conversion_repos.append({
         "repo": "https://hg.mozilla.org/build/%s" % repo,
-        "revision": "default",
         "repo_name": "build-%s" % repo,
         "targets": [{
             "target_dest": "build-%s/.git" % repo,
             "vcs": "git",
             "test_push": True,
-#        }, {
-#            "target_dest": "build-%s-imac" % repo,
         }, {
             "target_dest": "build-%s-github" % repo,
         }],
@@ -62,11 +59,6 @@ for repo in build_repos:
             ]
         },
     })
-    remote_targets["build-%s-imac" % repo] = {
-        "repo": "ssh://imac/Users/petermoore/build-repos/build-%s.git" % repo,
-        "ssh_key": "~/.ssh/id_rsa",
-        "vcs": "git",
-    }
     remote_targets["build-%s-github" % repo] = {
         "repo": "git@github.com:petermoore/build-%s.git" % repo,
         "ssh_key": "~/.ssh/github_mozilla_rsa",
@@ -83,15 +75,6 @@ config = {
     },
     "conversion_repos": conversion_repos,
     "remote_targets": remote_targets,
-    "exes": {
-        # bug 828140 - shut https warnings up.
-        # http://kiln.stackexchange.com/questions/2816/mercurial-certificate-warning-certificate-not-verified-web-cacerts
-        "tooltool.py": [
-            os.path.join("%(abs_work_dir)s", "build", "venv", "bin", "python"),
-            os.path.join("%(abs_work_dir)s", "mozharness", "external_tools", "tooltool.py"),
-        ],
-    },
-
     "virtualenv_modules": [
         "bottle==0.11.6",
         "dulwich==0.9.0",
@@ -104,16 +87,15 @@ config = {
         "mozprocess==0.11",
     ],
     "find_links": [
-        "http://pypi.pvt.build.mozilla.org/pub",
-        "http://pypi.pub.build.mozilla.org/pub",
+        "http://pypi.pub.build.mozilla.org/pub"
     ],
     "pip_index": False,
 
     "upload_config": [{
         "ssh_key": "~/.ssh/id_rsa",
-        "ssh_user": "petermoore",
-        "remote_host": "pete-moores-imac-g5.local",
-        "remote_path": "/Users/petermoore/test-vcs-pete",
+        "ssh_user": "pmoore",
+        "remote_host": "localhost",
+        "remote_path": "/Users/pmoore/test-vcs-pete",
     }],
 
     "default_notify_from": "vcs2vcs@%s" % hostname,
@@ -126,5 +108,10 @@ config = {
     # Disallow sharing, since we want pristine .hg and .git directories.
     "vcs_share_base": None,
     "hg_share_base": None,
-
+    
+    # any hg command line options
+    "hg_options": (
+        "--config",
+        "web.cacerts=/Users/pmoore/ca-bundle.crt"
+    )
 }
