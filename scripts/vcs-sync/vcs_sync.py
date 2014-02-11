@@ -611,7 +611,7 @@ intree=1
         # If "hg" is set in "exes" section of config use that.
         # If not, get path from self.query_virtualenv_path() method
         # (respects --work-dir and --venv-path and --virtualenv-path).
-        exe_command = self.query_exe('hg', return_type="list", default = [os.path.join(self.query_virtualenv_path(), "bin", "hg")])
+        exe_command = self.query_exe('hg', return_type="list", default=[os.path.join(self.query_virtualenv_path(), "bin", "hg")])
             
         # possible additional command line options can be specified in "hg_options" of self.config
         hg_options = self.config.get("hg_options", ())
