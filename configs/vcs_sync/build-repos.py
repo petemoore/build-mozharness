@@ -42,29 +42,40 @@ for repo in build_repos:
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "build-%s" % repo,
+            "target_dest": "build-%s-imac" % repo,
+        }, {
+            "target_dest": "build-%s-github" % repo,
         }],
         "vcs": "hg",
+        
         "branch_config": {
             "branches": {
                 "default": "master",
             },
+            "branch_regexes": [
+                "^.*$"
+            ]
         },
-        "tag_config": {},
+        "tag_config": {
+            "tag_regexes": [
+                "^.*$"
+            ]
+        },
     })
-    remote_targets["build-%s" % repo] = {
+    remote_targets["build-%s-imac" % repo] = {
         "repo": "ssh://imac/Users/petermoore/build-repos/build-%s.git" % repo,
         "ssh_key": "~/.ssh/id_rsa",
+        "vcs": "git",
+    }
+    remote_targets["build-%s-github" % repo] = {
+        "repo": "git@github.com:petermoore/build-%s.git" % repo,
+        "ssh_key": "~/.ssh/github_mozilla_rsa",
         "vcs": "git",
     }
 
 config = {
     "log_name": "build-repos",
     "log_max_rotate": 99,
-    "repos": [{
-        "repo": "https://hg.mozilla.org/users/hwine_mozilla.com/repo-sync-tools",
-        "vcs": "hg",
-    }],
     "job_name": "build-repos",
     "conversion_dir": "build-repos",
     "env": {

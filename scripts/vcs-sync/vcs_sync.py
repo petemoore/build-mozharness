@@ -517,7 +517,7 @@ intree=1
                             continue
                         tag_name = tag_parts[0]
                         for regex in regex_list:
-                            if regex.search(tag_name) is not None:
+                            if tag_name != 'tip' and regex.search(tag_name) is not None:
                                 refs_list += ['+refs/tags/%s:refs/tags/%s' % (tag_name, tag_name)]
                                 continue
                 error_msg = "%s: Can't push %s to %s!\n" % (repo_config['repo_name'], conversion_dir, target_name)
