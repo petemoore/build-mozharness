@@ -61,11 +61,6 @@ class HgGitScript(VirtualenvMixin, TooltoolMixin, TransferMixin, VCSSyncScript):
             "dest": "check_incoming",
             "default": True,
             "help": "Don't check for incoming changesets"
-        }],
-        [["--hg-options"], {
-            "action": "store",
-            "dest": "hg_options",
-            "help": "Additional options to pass to hg commands"
         }]
     ]
 
