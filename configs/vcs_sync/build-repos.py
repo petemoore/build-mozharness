@@ -1,16 +1,6 @@
-'''
-Created on Jan 28, 2014
-
-@author: pmoore
-'''
-
-
 import os
 import socket
 hostname = socket.gethostname()
-
-#import socket
-#hostname = socket.gethostname()
 
 build_repos = (
     'autoland',
