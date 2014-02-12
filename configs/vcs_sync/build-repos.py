@@ -26,6 +26,7 @@ for repo in build_repos:
     conversion_repos.append({
         "repo": "https://hg.mozilla.org/build/%s" % repo,
         "repo_name": "build-%s" % repo,
+        "conversion_dir": "build-%s" % repo,
         "targets": [{
             "target_dest": "build-%s/.git" % repo,
             "vcs": "git",
@@ -59,7 +60,6 @@ config = {
     "log_name": "build-repos",
     "log_max_rotate": 99,
     "job_name": "build-repos",
-    "conversion_dir": "build-repos",
     "env": {
         "PATH": "%(PATH)s:/usr/libexec/git-core",
     },

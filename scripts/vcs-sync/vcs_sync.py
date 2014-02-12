@@ -69,6 +69,7 @@ class HgGitScript(VirtualenvMixin, TooltoolMixin, TransferMixin, VCSSyncScript):
             config_options=virtualenv_config_options + self.config_options,
             all_actions=[
                 'clobber',
+                'list-repos',
                 'create-virtualenv',
                 'update-stage-mirror',
                 'update-work-mirror',
@@ -81,6 +82,7 @@ class HgGitScript(VirtualenvMixin, TooltoolMixin, TransferMixin, VCSSyncScript):
             # initial steps to create the work mirror with all the branches +
             # cvs history have been run.
             default_actions=[
+                'list-repos',
                 'create-virtualenv',
                 'update-stage-mirror',
                 'update-work-mirror',
@@ -431,7 +433,7 @@ intree=1
             covers git pushes.
             """
         dirs = self.query_abs_dirs()
-        conversion_dir = os.path.join(self.query_abs_conversion_dir(repo_config), repo_config['repo_name'])
+        conversion_dir = self.query_abs_conversion_dir(repo_config)
         if not conversion_dir:
             self.fatal("No conversion_dir for %s!" % repo_config['repo_name'])
         source_dir = os.path.join(dirs['abs_source_dir'], repo_config['repo_name'])
@@ -633,7 +635,7 @@ intree=1
                 # This assumes we always want closed branches as well.
                 # If not we may need more options.
                 output = self.get_output_from_command(
-                    hg + ['branches', '-c'],
+                    hg + ['branches', '-a'],
                     cwd=repo_path
                 )
                 if output:
@@ -697,6 +699,11 @@ intree=1
                          cwd=cwd)
 
     # Actions {{{1
+
+    def list_repos(self):
+        repos = self.query_all_repos()
+        self.info(pprint.pformat(repos))
+    
     def create_test_targets(self):
         """ This action creates local directories to do test pushes to.
             """
@@ -745,7 +752,7 @@ intree=1
         for repo_config in self.query_all_repos():
             repo_name = repo_config['repo_name']
             source = os.path.join(dirs['abs_source_dir'], repo_name)
-            dest = os.path.join(self.query_abs_conversion_dir(repo_config), repo_name)
+            dest = self.query_abs_conversion_dir(repo_config)
             if not dest:
                 self.fatal("No conversion_dir for %s!" % repo_name)
             if not os.path.exists(dest):
