@@ -82,10 +82,10 @@ config = {
     "pip_index": False,
 
     "upload_config": [{
-        "ssh_key": "~/.ssh/id_rsa",
-        "ssh_user": "pmoore",
-        "remote_host": "localhost",
-        "remote_path": "/Users/pmoore/test-vcs-pete",
+        "ssh_key": "/home/pmoore/vcs_sync/ssh_keys/id_rsa",
+        "ssh_user": "asasaki",
+        "remote_host": "github-sync2",
+        "remote_path": "/home/asasaki/upload/build-repos-upload",
     }],
 
     "default_notify_from": "vcs2vcs@%s" % hostname,
@@ -102,6 +102,6 @@ config = {
     # any hg command line options
     "hg_options": (
         "--config",
-        "web.cacerts=/Users/pmoore/ca-bundle.crt"
+        "web.cacerts=/etc/pki/tls/certs/ca-bundle.crt"
     )
 }

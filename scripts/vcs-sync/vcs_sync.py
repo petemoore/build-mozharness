@@ -633,7 +633,7 @@ intree=1
                 # This assumes we always want closed branches as well.
                 # If not we may need more options.
                 output = self.get_output_from_command(
-                    hg + ['branches', '-a'],
+                    hg + ['branches', '-c'],
                     cwd=repo_path
                 )
                 if output:
