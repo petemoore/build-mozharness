@@ -169,7 +169,7 @@ class EmulatorBuild(BaseScript, PurgeMixin):
         }],
         [["--patch"], {
             "dest": "patch",
-            "help": "'dir=url' of patch to apply to AOSP before building (eg. development=http://foo.com/bar.patch; default inferred)",
+            "help": "'dir=url' comma-separated list of patches to apply to AOSP before building (eg. development=http://foo.com/bar.patch; default inferred)",
         }],
         [["--android-apilevel"], {
             "dest": "android_apilevel",
@@ -209,6 +209,7 @@ class EmulatorBuild(BaseScript, PurgeMixin):
                                 'download-ndk',
                                 'download-test-binaries',
                                 'checkout-orangutan',
+                                'patch-aosp',
                                 'build-aosp',
                                 'build-kernel',
                                 'build-orangutan-su',
@@ -225,6 +226,7 @@ class EmulatorBuild(BaseScript, PurgeMixin):
                                 'download-ndk',
                                 'download-test-binaries',
                                 'checkout-orangutan',
+                                'patch-aosp',
                                 'build-aosp',
                                 'build-kernel',
                                 'build-orangutan-su',
@@ -264,11 +266,11 @@ class EmulatorBuild(BaseScript, PurgeMixin):
         if self.tag == 'inferred':
             self.tag = self.select_android_tag(self.config['android_version'])
 
-        self.patch = self.config['patch']
-        if self.patch == 'inferred':
-            self.patch = self.select_patch(self.tag)
+        self.patches = self.config['patch']
+        if self.patches == 'inferred':
+            self.patches = self.select_patches(self.tag)
         else:
-            self.patch = self.patch.split('=')
+            self.patches = [x.split('=') for x in self.patches.split(',')]
 
         self.apilevel = self.config['android_apilevel']
         if self.apilevel == 'inferred':
@@ -305,7 +307,6 @@ class EmulatorBuild(BaseScript, PurgeMixin):
         self.apt_update()
         self.apt_get(["python-software-properties"])
         for pkgset in [[jdk],
-                       ["openjdk-6-jdk"],
                        ["libglw1-mesa"],
                        ["git", "gnupg", "flex", "bison", "gperf", "zip", "curl"],
                        ["mingw32", "tofrodos"],
@@ -424,22 +425,21 @@ class EmulatorBuild(BaseScript, PurgeMixin):
 
 
     def patch_aosp(self):
-        if self.patch != None:
-            projectdir = self.patch[0]
-            url = self.patch[1]
-            patchdir = os.path.join(self.aospdir, projectdir)
-            self.info("downloading and applying AOSP patch %s to %s" % (url, patchdir))
-            self.download_file(url,
-                               file_name='aosp.patch',
-                               parent_dir=self.workdir)
-            self.run_command(['patch', '-p1',
-                              '-i', os.path.join(self.workdir, 'aosp.patch')],
-                             cwd=patchdir,
-                             halt_on_failure=True)
+        if self.patches != None:
+            for patch in self.patches:
+                projectdir = patch[0]
+                url = patch[1]
+                patchdir = os.path.join(self.aospdir, projectdir)
+                self.info("downloading and applying AOSP patch %s to %s" % (url, patchdir))
+                self.download_file(url,
+                                   file_name='aosp.patch',
+                                   parent_dir=self.workdir)
+                self.run_command(['patch', '-p1',
+                                  '-i', os.path.join(self.workdir, 'aosp.patch')],
+                                 cwd=patchdir,
+                                 halt_on_failure=True)
 
     def build_aosp(self):
-
-        self.patch_aosp()
 
         arch = None
         variant = None
@@ -467,24 +467,18 @@ class EmulatorBuild(BaseScript, PurgeMixin):
 
         self.run_command(["/bin/bash", "-c",
                           ". build/envsetup.sh "
-                          "&& lunch full-eng "
+                          "&& lunch sdk-eng "
                           "&& make -j " + str(self.ncores) +
+                          " sdk" +
                           " TARGET_ARCH=" + arch +
                           " TARGET_ARCH_VARIANT=" + variant +
                           " TARGET_CPU_ABI=" + abi +
                           abi2 +
-                          " CC=gcc-4.4 CXX=g++-4.4"],
+                          " CC=gcc-4.4 CXX=g++-4.4" +
+                          " && make out/host/linux-x86/bin/mksdcard"],
                          cwd=self.aospdir,
                          halt_on_failure=True,
                          partial_env=env)
-
-        self.run_command(["/bin/bash", "-c",
-                          ". build/envsetup.sh "
-                          "&& lunch full-eng "
-                          "&& make out/host/linux-x86/bin/mksdcard"],
-                         cwd=self.aospdir,
-                         halt_on_failure=True)
-
 
     def build_kernel(self):
         env = {}
@@ -926,11 +920,13 @@ class EmulatorBuild(BaseScript, PurgeMixin):
                 return tag
         self.fatal("requested android version '%s' doesn't match any tag" % vers)
 
-    def select_patch(self, tag):
+    def select_patches(self, tag):
         if tag == 'gingerbread':
             # FIXME: perhaps put this patch someplace more stable than bugzilla?
-            return ('development',
-                    'https://bug910092.bugzilla.mozilla.org/attachment.cgi?id=8361456')
+            return [('development',
+                     'https://bug910092.bugzilla.mozilla.org/attachment.cgi?id=8361456'),
+                    ('external/sqlite',
+                     'https://bug910092.bugzilla.mozilla.org/attachment.cgi?id=8364687')]
         return None
 
     def _post_fatal(self, message=None, exit_code=None):
