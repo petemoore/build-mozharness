@@ -17,6 +17,8 @@ import pprint
 import re
 import sys
 import time
+import shutil
+import requests
 
 try:
     import simplejson as json
@@ -736,6 +738,34 @@ intree=1
         for repo_config in self.query_all_repos():
             self._update_stage_repo(repo_config)
 
+    def pull_out_new_sha_lookups(self, old_file, new_file):
+        """ This method will return an iterator which iterates through lines in file
+            new_file that did not exist in old_file. It assumes that all lines in old_file
+            exist in new_file, and are in the same order - the only difference is
+            additional lines that have been injected throughout old_file to create new_file
+            This is the case with git-mapfile - since the mappings are sorted, and only new
+            mappings are added, no mappings are deleted"""
+        if not os.access(old_file, os.R_OK):
+            with open (new_file, 'rt') as new_shas_file:
+                for remaining in new_shas_file:
+                    yield remaining
+        else:
+            with open (new_file, 'rt') as new_shas_file:
+                with open (old_file, 'rt') as old_shas_file:
+                    for old_sha in old_shas_file:
+                        maybe_new_sha = new_shas_file.readline()
+                        while maybe_new_sha != old_sha:
+                            yield maybe_new_sha
+                            maybe_new_sha = new_shas_file.readline()
+                for remaining in new_shas_file:
+                    yield remaining
+
+    def _process_new_lookup(self, git_sha, hg_sha, git_dir):
+        """ This method will perform all required tasks for when a new hg<->git mapping
+            is created. Currently this is:
+            a) create a new git note
+            b) publish mapping to mapper service"""
+
     def update_work_mirror(self):
         """ Pull the latest changes into the work mirror, update the repo_map
             json, and run |hg gexport| to convert those latest changes into
@@ -813,6 +843,12 @@ intree=1
             if self.query_failure(repo_name):
                 # We hit an error in the for loop above
                 continue
+            # keep a copy of existing mapfile from previous run
+            # in order that we can see which are the new commits added
+            generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
+            previously_generated_mapfile = os.path.join(dest, '.hg', 'previous-git-mapfile')
+            delta_mapfile = os.path.join(dest, '.hg', 'delta-git-mapfile')
+            git_dir = os.path.join(dest, '.hg', 'git')
             self.retry(
                 self.run_command,
                 args=(hg + ['-v', 'gexport'], ),
@@ -823,7 +859,30 @@ intree=1
                 },
                 error_level=FATAL,
             )
-            generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
+            # at this point, if we have the two files:
+            # previously_generated_mapfile
+            # generated_mapfile
+            # we can work out what the new set of SHAs are since
+            # the previous run, by diffing the two:
+            with open(delta-mapfile, "w") as output:
+                for sha_lookup in pull_out_new_sha_lookups(previously_generated_mapfile, generated_mapfile):
+                    print >>output, sha_lookup,
+                    # now create git note
+                    # now publish to mapper
+                    # now if all pushes are successful, then we can:
+                    # shutil.copyfile(generated_mapfile, previously_generated_mapfile)
+                    (git_sha, hg_sha) = sha_lookup.split()
+                    git = self.query_exe("git", return_type="list")
+                    output = self.get_output_from_command(
+                        git + ['notes', 'add', '-m', 'HG id: %s' % hg_sha, git_sha],
+                        cwd=git_dir
+                    )
+            insert_url = "%s/%s/insert" % (mapper_url, project)
+            files = {'file': open(delta-mapfile, 'rb')}
+            r = requests.post(insert_url, files=files)
+            # only mark as "previously generated" for next time if push to mapper was successful
+            if (r.status_code == 200):
+                shutil.copyfile(generated_mapfile, previously_generated_mapfile)
             self.copy_to_upload_dir(
                 generated_mapfile,
                 dest=repo_config.get('mapfile_name', self.config.get('mapfile_name', "gecko-mapfile")),
