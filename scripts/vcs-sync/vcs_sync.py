@@ -760,12 +760,6 @@ intree=1
                 for remaining in new_shas_file:
                     yield remaining
 
-    def _process_new_lookup(self, git_sha, hg_sha, git_dir):
-        """ This method will perform all required tasks for when a new hg<->git mapping
-            is created. Currently this is:
-            a) create a new git note
-            b) publish mapping to mapper service"""
-
     def update_work_mirror(self):
         """ Pull the latest changes into the work mirror, update the repo_map
             json, and run |hg gexport| to convert those latest changes into
@@ -864,6 +858,8 @@ intree=1
             # generated_mapfile
             # we can work out what the new set of SHAs are since
             # the previous run, by diffing the two:
+            if os.path.exists(delta-mapfile):
+                os.remove(delta-mapfile)
             with open(delta-mapfile, "w") as output:
                 for sha_lookup in pull_out_new_sha_lookups(previously_generated_mapfile, generated_mapfile):
                     print >>output, sha_lookup,
@@ -877,12 +873,16 @@ intree=1
                         git + ['notes', 'add', '-m', 'HG id: %s' % hg_sha, git_sha],
                         cwd=git_dir
                     )
-            insert_url = "%s/%s/insert" % (mapper_url, project)
-            files = {'file': open(delta-mapfile, 'rb')}
-            r = requests.post(insert_url, files=files)
-            # only mark as "previously generated" for next time if push to mapper was successful
-            if (r.status_code == 200):
-                shutil.copyfile(generated_mapfile, previously_generated_mapfile)
+            mapper_config = repo_config.get('mapper', {})
+            if mapper_config:
+                mapper_url = mapper_config.get('url')
+                mapper_project = mapper_config.get('project')
+                insert_url = "%s/%s/insert" % (mapper_url, mapper_project)
+                files = {'file': open(delta-mapfile, 'rb')}
+                r = requests.post(insert_url, files=files)
+                # only mark as "previously generated" for next time if push to mapper was successful
+                if (r.status_code == 200):
+                    shutil.copyfile(generated_mapfile, previously_generated_mapfile)
             self.copy_to_upload_dir(
                 generated_mapfile,
                 dest=repo_config.get('mapfile_name', self.config.get('mapfile_name', "gecko-mapfile")),
