@@ -32,7 +32,10 @@ for repo in build_repos:
             "force_push": True
         }],
         "vcs": "hg",
-
+        "mapper": {
+            "url": "https://api.pub.build.mozilla.org/mapper",
+            "project": "build-%s" % repo,
+        },
         "branch_config": {
             "branches": {
                 "default": "master",
@@ -63,7 +66,6 @@ config = {
     "conversion_repos": conversion_repos,
     "remote_targets": remote_targets,
     "virtualenv_modules": [
-        "bottle==0.11.6",
         "dulwich==0.9.0",
         "ordereddict==1.1",
         "hg-git==0.4.0-moz2",
@@ -72,6 +74,7 @@ config = {
         "mozfile==0.9",
         "mozinfo==0.5",
         "mozprocess==0.11",
+        "requests==2.2.1",
     ],
     "find_links": [
         "http://pypi.pub.build.mozilla.org/pub"
