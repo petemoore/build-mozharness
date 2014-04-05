@@ -757,7 +757,9 @@ intree=1
         for line in sorted(new_set.difference(old_set), key=lambda line: line.partition(' ')[2]):
             yield line
 
-    def process_map_file(self, dest):
+    def process_map_file(self, dest, generated_mapfile):
+        """ This method will attempt to create git notes for any new git<->hg mappings
+            found in the generated_mapfile file and also push new mappings to mapper service."""
         previously_generated_mapfile = os.path.join(dest, '.hg', 'previous-git-mapfile')
         delta_mapfile = os.path.join(dest, '.hg', 'delta-git-mapfile')
         git_dir = os.path.join(dest, '.hg', 'git')
@@ -887,7 +889,7 @@ intree=1
             )
             generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
             try:
-                process_map_file(dest)
+                process_map_file(dest, generated_mapfile)
             except BaseException as e:
                 self.error("Problem processing map file '%s': %s" % (generated_mapfile, e))
             self.copy_to_upload_dir(
