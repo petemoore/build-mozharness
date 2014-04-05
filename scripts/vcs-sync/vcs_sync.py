@@ -740,25 +740,63 @@ intree=1
 
     def pull_out_new_sha_lookups(self, old_file, new_file):
         """ This method will return an iterator which iterates through lines in file
-            new_file that did not exist in old_file. It assumes that all lines in old_file
-            exist in new_file, and are in the same order - the only difference is
-            additional lines that have been injected throughout old_file to create new_file
-            This is the case with git-mapfile - since the mappings are sorted, and only new
-            mappings are added, no mappings are deleted"""
-        if not os.access(old_file, os.R_OK):
-            with open (new_file, 'rt') as new_shas_file:
-                for remaining in new_shas_file:
-                    yield remaining
+            new_file that do not exist in old_file. If old_file can't be read, all
+            lines in new_file are returned. It does not cause any problems if lines
+            exist in old_file that do not exist in new_file. Results are sorted by
+            the second field (text after first space in line).
+
+            This is somewhat equivalent to:
+               ( [ ! -f "${old_file}" ] && cat "${new_file}" || diff "${old_file}" "${new_file}" | sed -n 's/> //p' ) | sort -k2"""
+        try:
+            with open(old_file, 'rt') as old:
+                old_set = sets.ImmutableSet(old)
+        except:
+            old_set = sets.ImmutableSet()
+        with open(new_file, 'rt') as new:
+            new_set = sets.ImmutableSet(new)
+        for line in sorted(new_set.difference(old_set), key=lambda line: line.partition(' ')[2]):
+            yield line
+
+    def process_map_file(self, dest):
+        previously_generated_mapfile = os.path.join(dest, '.hg', 'previous-git-mapfile')
+        delta_mapfile = os.path.join(dest, '.hg', 'delta-git-mapfile')
+        git_dir = os.path.join(dest, '.hg', 'git')
+        if os.path.exists(delta-mapfile):
+            os.remove(delta-mapfile)
+        with open(delta-mapfile, "w") as output:
+            for sha_lookup in pull_out_new_sha_lookups(previously_generated_mapfile, generated_mapfile):
+                print >>output, sha_lookup,
+                (git_sha, hg_sha) = sha_lookup.split()
+                # only add git note if not already there - note
+                # devs may have added their own notes, so don't
+                # replace any existing notes, just add to them
+                output = self.get_output_from_command(
+                    git + ['notes', 'show', git_sha],
+                    cwd=git_dir
+                )
+                if output.find('HG id: %s' % hg_sha) < 0:
+                    self.get_output_from_command(
+                        git + ['notes', 'append', '-m', 'HG id: %s' % hg_sha, git_sha],
+                        cwd=git_dir
+                    )
+        # we only replace previously_generated_mapfile if we successfully updated
+        # git notes and pushed to mapper
+        mapper_config = repo_config.get('mapper', {})
+        if mapper_config:
+            mapper_url = mapper_config.get('url')
+            mapper_project = mapper_config.get('project')
+            insert_url = "%s/%s/insert" % (mapper_url, mapper_project)
+            files = {'file': open(delta-mapfile, 'rb')}
+            r = requests.post(insert_url, files=files)
+            if (r.status_code == 200):
+                # if we get this far, we know we could create all the required git
+                # notes and we were able to successfully post to mapper, so now
+                # we can copy the mapfile over "previously generated" version
+                # so that we don't push to mapper or create git notes for these
+                # commits again
+                shutil.copyfile(generated_mapfile, previously_generated_mapfile)
         else:
-            with open (new_file, 'rt') as new_shas_file:
-                with open (old_file, 'rt') as old_shas_file:
-                    for old_sha in old_shas_file:
-                        maybe_new_sha = new_shas_file.readline()
-                        while maybe_new_sha != old_sha:
-                            yield maybe_new_sha
-                            maybe_new_sha = new_shas_file.readline()
-                for remaining in new_shas_file:
-                    yield remaining
+            shutil.copyfile(generated_mapfile, previously_generated_mapfile)
 
     def update_work_mirror(self):
         """ Pull the latest changes into the work mirror, update the repo_map
@@ -840,9 +878,6 @@ intree=1
             # keep a copy of existing mapfile from previous run
             # in order that we can see which are the new commits added
             generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
-            previously_generated_mapfile = os.path.join(dest, '.hg', 'previous-git-mapfile')
-            delta_mapfile = os.path.join(dest, '.hg', 'delta-git-mapfile')
-            git_dir = os.path.join(dest, '.hg', 'git')
             self.retry(
                 self.run_command,
                 args=(hg + ['-v', 'gexport'], ),
@@ -853,36 +888,10 @@ intree=1
                 },
                 error_level=FATAL,
             )
-            # at this point, if we have the two files:
-            # previously_generated_mapfile
-            # generated_mapfile
-            # we can work out what the new set of SHAs are since
-            # the previous run, by diffing the two:
-            if os.path.exists(delta-mapfile):
-                os.remove(delta-mapfile)
-            with open(delta-mapfile, "w") as output:
-                for sha_lookup in pull_out_new_sha_lookups(previously_generated_mapfile, generated_mapfile):
-                    print >>output, sha_lookup,
-                    # now create git note
-                    # now publish to mapper
-                    # now if all pushes are successful, then we can:
-                    # shutil.copyfile(generated_mapfile, previously_generated_mapfile)
-                    (git_sha, hg_sha) = sha_lookup.split()
-                    git = self.query_exe("git", return_type="list")
-                    output = self.get_output_from_command(
-                        git + ['notes', 'add', '-m', 'HG id: %s' % hg_sha, git_sha],
-                        cwd=git_dir
-                    )
-            mapper_config = repo_config.get('mapper', {})
-            if mapper_config:
-                mapper_url = mapper_config.get('url')
-                mapper_project = mapper_config.get('project')
-                insert_url = "%s/%s/insert" % (mapper_url, mapper_project)
-                files = {'file': open(delta-mapfile, 'rb')}
-                r = requests.post(insert_url, files=files)
-                # only mark as "previously generated" for next time if push to mapper was successful
-                if (r.status_code == 200):
-                    shutil.copyfile(generated_mapfile, previously_generated_mapfile)
+            try:
+                process_map_file(dest)
+            except BaseException as e:
+                self.error("Problem processing map file '%s': %s" % (generated_mapfile, e))
             self.copy_to_upload_dir(
                 generated_mapfile,
                 dest=repo_config.get('mapfile_name', self.config.get('mapfile_name', "gecko-mapfile")),
