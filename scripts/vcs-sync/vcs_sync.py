@@ -18,7 +18,6 @@ import re
 import sys
 import time
 import shutil
-import requests
 
 try:
     import simplejson as json
@@ -785,6 +784,13 @@ intree=1
         # git notes and pushed to mapper
         mapper_config = repo_config.get('mapper', {})
         if mapper_config:
+            requests_path = os.path.join(self.query_python_site_packages_path(), 'requests')
+            if sys.path.find(requests_path) < 0:
+                sys.path.append(os.path.join(site_packages_path, 'requests'))
+            try:
+                import requests
+            except BaseException as e:
+                self.error("Can't import requests: %s\nDid you create-virtualenv?" % str(e))
             mapper_url = mapper_config.get('url')
             mapper_project = mapper_config.get('project')
             insert_url = "%s/%s/insert" % (mapper_url, mapper_project)
