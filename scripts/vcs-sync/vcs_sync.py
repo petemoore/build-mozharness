@@ -875,9 +875,6 @@ intree=1
             if self.query_failure(repo_name):
                 # We hit an error in the for loop above
                 continue
-            # keep a copy of existing mapfile from previous run
-            # in order that we can see which are the new commits added
-            generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
             self.retry(
                 self.run_command,
                 args=(hg + ['-v', 'gexport'], ),
@@ -888,6 +885,7 @@ intree=1
                 },
                 error_level=FATAL,
             )
+            generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
             try:
                 process_map_file(dest)
             except BaseException as e:
