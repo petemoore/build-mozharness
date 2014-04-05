@@ -32,6 +32,7 @@ for repo in build_repos:
             "force_push": True
         }],
         "vcs": "hg",
+
         "mapper": {
             "url": "https://api.pub.build.mozilla.org/mapper",
             "project": "build-%s" % repo,

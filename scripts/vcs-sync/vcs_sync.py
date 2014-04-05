@@ -785,7 +785,7 @@ intree=1
         mapper_config = repo_config.get('mapper', {})
         if mapper_config:
             requests_path = os.path.join(self.query_python_site_packages_path(), 'requests')
-            if sys.path.find(requests_path) < 0:
+            if requests_path in sys.path:
                 sys.path.append(os.path.join(site_packages_path, 'requests'))
             try:
                 import requests
