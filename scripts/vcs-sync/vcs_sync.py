@@ -15,9 +15,10 @@ import mmap
 import os
 import pprint
 import re
+import sets
+import shutil
 import sys
 import time
-import shutil
 
 try:
     import simplejson as json
@@ -756,16 +757,16 @@ intree=1
         for line in sorted(new_set.difference(old_set), key=lambda line: line.partition(' ')[2]):
             yield line
 
-    def process_map_file(self, dest, generated_mapfile):
+    def process_map_file(self, dest, generated_mapfile, git):
         """ This method will attempt to create git notes for any new git<->hg mappings
             found in the generated_mapfile file and also push new mappings to mapper service."""
         previously_generated_mapfile = os.path.join(dest, '.hg', 'previous-git-mapfile')
         delta_mapfile = os.path.join(dest, '.hg', 'delta-git-mapfile')
-        git_dir = os.path.join(dest, '.hg', 'git')
-        if os.path.exists(delta-mapfile):
-            os.remove(delta-mapfile)
-        with open(delta-mapfile, "w") as output:
-            for sha_lookup in pull_out_new_sha_lookups(previously_generated_mapfile, generated_mapfile):
+        git_dir = os.path.join(dest, '.git')
+        if os.path.exists(delta_mapfile):
+            os.remove(delta_mapfile)
+        with open(delta_mapfile, "w") as output:
+            for sha_lookup in self.pull_out_new_sha_lookups(previously_generated_mapfile, generated_mapfile):
                 print >>output, sha_lookup,
                 (git_sha, hg_sha) = sha_lookup.split()
                 # only add git note if not already there - note
@@ -775,7 +776,7 @@ intree=1
                     git + ['notes', 'show', git_sha],
                     cwd=git_dir
                 )
-                if output.find('HG id: %s' % hg_sha) < 0:
+                if not output or output.find('HG id: %s' % hg_sha) < 0:
                     self.get_output_from_command(
                         git + ['notes', 'append', '-m', 'HG id: %s' % hg_sha, git_sha],
                         cwd=git_dir
@@ -794,7 +795,7 @@ intree=1
             mapper_url = mapper_config.get('url')
             mapper_project = mapper_config.get('project')
             insert_url = "%s/%s/insert" % (mapper_url, mapper_project)
-            files = {'file': open(delta-mapfile, 'rb')}
+            files = {'file': open(delta_mapfile, 'rb')}
             r = requests.post(insert_url, files=files)
             if (r.status_code == 200):
                 # if we get this far, we know we could create all the required git
@@ -895,7 +896,7 @@ intree=1
             )
             generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
             try:
-                process_map_file(dest, generated_mapfile)
+                self.process_map_file(dest, generated_mapfile, git)
             except BaseException as e:
                 self.error("Problem processing map file '%s': %s" % (generated_mapfile, e))
             self.copy_to_upload_dir(
