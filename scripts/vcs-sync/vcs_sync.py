@@ -475,7 +475,8 @@ intree=1
                 # We query hg for these because the conversion dir will have
                 # branches from multiple hg repos, and the regexes may match
                 # too many things.
-                refs_list = []
+                # always include refs/notes/commits for git notes taken of hg shas
+                refs_list = ['+refs/notes/commits:refs/notes/commits']
                 branch_map = self.query_branches(
                     target_config.get('branch_config', repo_config.get('branch_config', {})),
                     source_dir,
@@ -757,17 +758,18 @@ intree=1
         for line in sorted(new_set.difference(old_set), key=lambda line: line.partition(' ')[2]):
             yield line
 
-    def process_map_file(self, dest, generated_mapfile, git):
+    def process_map_file(self, dest, generated_mapfile, git, repo_config):
         """ This method will attempt to create git notes for any new git<->hg mappings
             found in the generated_mapfile file and also push new mappings to mapper service."""
         previously_generated_mapfile = os.path.join(dest, '.hg', 'previous-git-mapfile')
         delta_mapfile = os.path.join(dest, '.hg', 'delta-git-mapfile')
         git_dir = os.path.join(dest, '.git')
+        repo = repo_config['repo']
         if os.path.exists(delta_mapfile):
             os.remove(delta_mapfile)
-        with open(delta_mapfile, "w") as output:
+        with open(delta_mapfile, "w") as delta_out:
             for sha_lookup in self.pull_out_new_sha_lookups(previously_generated_mapfile, generated_mapfile):
-                print >>output, sha_lookup,
+                print >>delta_out, sha_lookup,
                 (git_sha, hg_sha) = sha_lookup.split()
                 # only add git note if not already there - note
                 # devs may have added their own notes, so don't
@@ -776,9 +778,9 @@ intree=1
                     git + ['notes', 'show', git_sha],
                     cwd=git_dir
                 )
-                if not output or output.find('HG id: %s' % hg_sha) < 0:
+                if not output or output.find('Upstream source: %s/log/%s' % (repo, hg_sha)) < 0:
                     self.get_output_from_command(
-                        git + ['notes', 'append', '-m', 'HG id: %s' % hg_sha, git_sha],
+                        git + ['notes', 'append', '-m', 'Upstream source: %s/log/%s' % (repo, hg_sha), git_sha],
                         cwd=git_dir
                     )
         # we only replace previously_generated_mapfile if we successfully updated
@@ -896,7 +898,7 @@ intree=1
             )
             generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
             try:
-                self.process_map_file(dest, generated_mapfile, git)
+                self.process_map_file(dest, generated_mapfile, git, repo_config)
             except BaseException as e:
                 self.error("Problem processing map file '%s': %s" % (generated_mapfile, e))
             self.copy_to_upload_dir(
