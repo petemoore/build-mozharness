@@ -411,6 +411,8 @@ intree=1
             """
         commands = []
         if refs_list:
+            # to skip pushing tags, uncomment (useful for testing)
+            # refs_list = [x for x in refs_list if 'tags' not in x]
             while len(refs_list) > 10:
                 commands.append(base_command + refs_list[0:10])
                 refs_list = refs_list[10:]
@@ -798,7 +800,11 @@ intree=1
             mapper_project = mapper_config.get('project')
             insert_url = "%s/%s/insert" % (mapper_url, mapper_project)
             files = {'file': open(delta_mapfile, 'rb')}
-            r = requests.post(insert_url, files=files)
+            headers = {
+                'Content-Type': 'text/plain',
+                'Authentication': 'Bearer %s' % os.environ["RELENGAPI_INSERT_HGGIT_MAPPINGS_AUTH_TOKEN"]
+            }
+            r = requests.post(insert_url, files=files, headers=headers)
             if (r.status_code == 200):
                 # if we get this far, we know we could create all the required git
                 # notes and we were able to successfully post to mapper, so now
@@ -954,6 +960,7 @@ intree=1
         for repo_config in self.query_all_repos():
             if self.query_failure(repo_config['repo_name']):
                 self.info("Skipping %s." % repo_config['repo_name'])
+                # comment out continue below to force push
                 continue
             timestamp = int(time.time())
             datetime = time.strftime('%Y-%m-%d %H:%M %Z')
