@@ -778,7 +778,8 @@ intree=1
                 # replace any existing notes, just add to them
                 output = self.get_output_from_command(
                     git + ['notes', 'show', git_sha],
-                    cwd=git_dir
+                    cwd=git_dir,
+                    ignore_errors=True
                 )
                 if not output or output.find('Upstream source: %s/log/%s' % (repo, hg_sha)) < 0:
                     self.get_output_from_command(
@@ -798,7 +799,7 @@ intree=1
                 self.error("Can't import requests: %s\nDid you create-virtualenv?" % str(e))
             mapper_url = mapper_config.get('url')
             mapper_project = mapper_config.get('project')
-            insert_url = "%s/%s/insert" % (mapper_url, mapper_project)
+            insert_url = "%s/%s/insert/ignoredups" % (mapper_url, mapper_project)
             files = {'file': open(delta_mapfile, 'rb')}
             headers = {
                 'Content-Type': 'text/plain',
