@@ -800,19 +800,21 @@ intree=1
             mapper_url = mapper_config.get('url')
             mapper_project = mapper_config.get('project')
             insert_url = "%s/%s/insert/ignoredups" % (mapper_url, mapper_project)
-            files = {'file': open(delta_mapfile, 'rb')}
             headers = {
                 'Content-Type': 'text/plain',
                 'Authentication': 'Bearer %s' % os.environ["RELENGAPI_INSERT_HGGIT_MAPPINGS_AUTH_TOKEN"]
             }
-            r = requests.post(insert_url, files=files, headers=headers)
-            if (r.status_code == 200):
-                # if we get this far, we know we could create all the required git
-                # notes and we were able to successfully post to mapper, so now
-                # we can copy the mapfile over "previously generated" version
-                # so that we don't push to mapper or create git notes for these
-                # commits again
-                shutil.copyfile(generated_mapfile, previously_generated_mapfile)
+            with open(delta_mapfile) as file:
+                r = requests.post(insert_url, data=file, headers=headers)
+                if (r.status_code == 200):
+                    # if we get this far, we know we could create all the required git
+                    # notes and we were able to successfully post to mapper, so now
+                    # we can copy the mapfile over "previously generated" version
+                    # so that we don't push to mapper or create git notes for these
+                    # commits again
+                    shutil.copyfile(generated_mapfile, previously_generated_mapfile)
+                else:
+                    self.error("Could not publish mapfile ('%s') to mapper (%s)" % (delta_mapfile, insert_url))
         else:
             shutil.copyfile(generated_mapfile, previously_generated_mapfile)
 
