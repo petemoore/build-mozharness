@@ -15,7 +15,6 @@ import mmap
 import os
 import pprint
 import re
-import sets
 import shutil
 import sys
 import time
@@ -752,11 +751,11 @@ intree=1
                ( [ ! -f "${old_file}" ] && cat "${new_file}" || diff "${old_file}" "${new_file}" | sed -n 's/> //p' ) | sort -k2"""
         try:
             with open(old_file, 'rt') as old:
-                old_set = sets.ImmutableSet(old)
+                old_set = frozenset(old)
         except:
-            old_set = sets.ImmutableSet()
+            old_set = frozenset()
         with open(new_file, 'rt') as new:
-            new_set = sets.ImmutableSet(new)
+            new_set = frozenset(new)
         for line in sorted(new_set.difference(old_set), key=lambda line: line.partition(' ')[2]):
             yield line
 
@@ -791,9 +790,9 @@ intree=1
         # git notes and pushed to mapper
         mapper_config = repo_config.get('mapper', {})
         if mapper_config:
-            requests_path = os.path.join(self.query_python_site_packages_path(), 'requests')
-            if requests_path not in sys.path:
-                sys.path.append(requests_path)
+            site_packages_path = self.query_python_site_packages_path()
+            if site_packages_path not in sys.path:
+                sys.path.append(site_packages_path)
             try:
                 import requests
             except BaseException as e:
