@@ -781,9 +781,10 @@ intree=1
                     cwd=git_dir,
                     ignore_errors=True
                 )
-                if not output or output.find('Upstream source: %s/log/%s' % (repo, hg_sha)) < 0:
+                git_note_text='Upstream source: %s/rev/%s' % (repo, hg_sha)
+                if not output or output.find(git_note_text) < 0:
                     self.get_output_from_command(
-                        git + ['notes', 'append', '-m', 'Upstream source: %s/rev/%s' % (repo, hg_sha), git_sha],
+                        git + ['notes', 'append', '-m', git_note_text, git_sha],
                         cwd=git_dir
                     )
         # we only replace previously_generated_mapfile if we successfully updated
