@@ -814,7 +814,7 @@ intree=1
                     # commits again
                     shutil.copyfile(generated_mapfile, previously_generated_mapfile)
                 else:
-                    self.error("Could not publish mapfile ('%s') to mapper (%s)" % (delta_mapfile, insert_url))
+                    self.error("Could not publish mapfile ('%s') to mapper (%s) - received http %s code" % (delta_mapfile, insert_url, r.status_code))
         else:
             shutil.copyfile(generated_mapfile, previously_generated_mapfile)
 
