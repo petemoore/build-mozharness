@@ -902,7 +902,7 @@ intree=1
                         )
                     # if note was successfully added, or it was already there, we can
                     # mark it as added, by putting it in the delta file...
-                    if git_notes_add_return_code == 0 or output.find(git_note_text) > 0:
+                    if git_notes_add_return_code == 0 or output.find(git_note_text) >= 0:
                         print >>delta_out, sha_lookup,
                     else:
                         self.error("Was not able to append required git note for git commit %s ('%s')" % (git_sha, git_note_text))
