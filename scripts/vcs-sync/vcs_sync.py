@@ -74,6 +74,7 @@ class HgGitScript(VirtualenvMixin, TooltoolMixin, TransferMixin, VCSSyncScript):
                 'create-virtualenv',
                 'update-stage-mirror',
                 'update-work-mirror',
+                'publish-to-mapper',
                 'push',
                 'combine-mapfiles',
                 'upload',
@@ -87,6 +88,7 @@ class HgGitScript(VirtualenvMixin, TooltoolMixin, TransferMixin, VCSSyncScript):
                 'create-virtualenv',
                 'update-stage-mirror',
                 'update-work-mirror',
+                'publish-to-mapper',
                 'push',
                 'combine-mapfiles',
                 'upload',
@@ -759,65 +761,6 @@ intree=1
         for line in sorted(new_set.difference(old_set), key=lambda line: line.partition(' ')[2]):
             yield line
 
-    def process_map_file(self, dest, generated_mapfile, git, repo_config):
-        """ This method will attempt to create git notes for any new git<->hg mappings
-            found in the generated_mapfile file and also push new mappings to mapper service."""
-        previously_generated_mapfile = os.path.join(dest, '.hg', 'previous-git-mapfile')
-        delta_mapfile = os.path.join(dest, '.hg', 'delta-git-mapfile')
-        git_dir = os.path.join(dest, '.git')
-        repo = repo_config['repo']
-        if os.path.exists(delta_mapfile):
-            os.remove(delta_mapfile)
-        with open(delta_mapfile, "w") as delta_out:
-            for sha_lookup in self.pull_out_new_sha_lookups(previously_generated_mapfile, generated_mapfile):
-                print >>delta_out, sha_lookup,
-                (git_sha, hg_sha) = sha_lookup.split()
-                # only add git note if not already there - note
-                # devs may have added their own notes, so don't
-                # replace any existing notes, just add to them
-                output = self.get_output_from_command(
-                    git + ['notes', 'show', git_sha],
-                    cwd=git_dir,
-                    ignore_errors=True
-                )
-                git_note_text='Upstream source: %s/rev/%s' % (repo, hg_sha)
-                if not output or output.find(git_note_text) < 0:
-                    self.get_output_from_command(
-                        git + ['notes', 'append', '-m', git_note_text, git_sha],
-                        cwd=git_dir
-                    )
-        # we only replace previously_generated_mapfile if we successfully updated
-        # git notes and pushed to mapper
-        mapper_config = repo_config.get('mapper', {})
-        if mapper_config:
-            site_packages_path = self.query_python_site_packages_path()
-            if site_packages_path not in sys.path:
-                sys.path.append(site_packages_path)
-            try:
-                import requests
-            except BaseException as e:
-                self.error("Can't import requests: %s\nDid you create-virtualenv?" % str(e))
-            mapper_url = mapper_config.get('url')
-            mapper_project = mapper_config.get('project')
-            insert_url = "%s/%s/insert/ignoredups" % (mapper_url, mapper_project)
-            headers = {
-                'Content-Type': 'text/plain',
-                'Authentication': 'Bearer %s' % os.environ["RELENGAPI_INSERT_HGGIT_MAPPINGS_AUTH_TOKEN"]
-            }
-            with open(delta_mapfile) as file:
-                r = requests.post(insert_url, data=file, headers=headers)
-                if (r.status_code == 200):
-                    # if we get this far, we know we could create all the required git
-                    # notes and we were able to successfully post to mapper, so now
-                    # we can copy the mapfile over "previously generated" version
-                    # so that we don't push to mapper or create git notes for these
-                    # commits again
-                    shutil.copyfile(generated_mapfile, previously_generated_mapfile)
-                else:
-                    self.error("Could not publish mapfile ('%s') to mapper (%s) - received http %s code" % (delta_mapfile, insert_url, r.status_code))
-        else:
-            shutil.copyfile(generated_mapfile, previously_generated_mapfile)
-
     def update_work_mirror(self):
         """ Pull the latest changes into the work mirror, update the repo_map
             json, and run |hg gexport| to convert those latest changes into
@@ -905,11 +848,6 @@ intree=1
                 },
                 error_level=FATAL,
             )
-            generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
-            try:
-                self.process_map_file(dest, generated_mapfile, git, repo_config)
-            except BaseException as e:
-                self.error("Problem processing map file '%s': %s" % (generated_mapfile, e))
             self.copy_to_upload_dir(
                 generated_mapfile,
                 dest=repo_config.get('mapfile_name', self.config.get('mapfile_name', "gecko-mapfile")),
@@ -920,6 +858,81 @@ intree=1
                     revision=rev, mapfile=generated_mapfile)
                 repo_map['repos'][repo_name]['branches'][branch]['git_revision'] = git_revision
         self._write_repo_update_json(repo_map)
+
+    def publish_to_mapper(self):
+        """ This method will attempt to create git notes for any new git<->hg mappings
+            found in the generated_mapfile file and also push new mappings to mapper service."""
+        git = self.query_exe("git", return_type="list")
+        for repo_config in self.query_all_repos():
+            dest = self.query_abs_conversion_dir(repo_config)
+            generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
+            previously_generated_mapfile = os.path.join(dest, '.hg', 'previous-git-mapfile')
+            delta_mapfile = os.path.join(dest, '.hg', 'delta-git-mapfile')
+            git_dir = os.path.join(dest, '.git')
+            repo = repo_config['repo']
+            if os.path.exists(delta_mapfile):
+                os.remove(delta_mapfile)
+            with open(delta_mapfile, "w") as delta_out:
+                for sha_lookup in self.pull_out_new_sha_lookups(previously_generated_mapfile, generated_mapfile):
+                    print >>delta_out, sha_lookup,
+                    (git_sha, hg_sha) = sha_lookup.split()
+                    # only add git note if not already there - note
+                    # devs may have added their own notes, so don't
+                    # replace any existing notes, just add to them
+                    output = self.get_output_from_command(
+                        git + ['notes', 'show', git_sha],
+                        cwd=git_dir,
+                        ignore_errors=True
+                    )
+                    git_note_text='Upstream source: %s/rev/%s' % (repo, hg_sha)
+                    if not output or output.find(git_note_text) < 0:
+                        self.get_output_from_command(
+                            git + ['notes', 'append', '-m', git_note_text, git_sha],
+                            cwd=git_dir
+                        )
+            # we only replace previously_generated_mapfile if we successfully updated
+            # git notes and pushed to mapper
+            mapper_config = repo_config.get('mapper', {})
+            if mapper_config:
+                site_packages_path = self.query_python_site_packages_path()
+                if site_packages_path not in sys.path:
+                    sys.path.append(site_packages_path)
+                try:
+                    import requests
+                except BaseException as e:
+                    self.error("Can't import requests: %s\nDid you create-virtualenv?" % str(e))
+                mapper_url = mapper_config.get('url')
+                mapper_project = mapper_config.get('project')
+                insert_url = "%s/%s/insert/ignoredups" % (mapper_url, mapper_project)
+                headers = {
+                    'Content-Type': 'text/plain',
+                    'Authentication': 'Bearer %s' % os.environ["RELENGAPI_INSERT_HGGIT_MAPPINGS_AUTH_TOKEN"]
+                }
+                with open(delta_mapfile) as delta_file:
+                    publish_successful = True
+                    all_mappings = delta_file.readlines()
+                    # due to timeouts on load balancer, we only push 200 lines at a time
+                    # this means that we should get http response back within 30 seconds
+                    # including the time it takes to insert the mappings in the database
+                    for i in range(0, len(all_mappings), 200):
+                        r = requests.post(insert_url, data="".join(all_mappings[i:i+200]), headers=headers)
+                        if (r.status_code != 200):
+                            self.error("Could not publish mapfile ('%s') line range [%s, %s] to mapper (%s) - received http %s code" % (delta_mapfile, i, i+200, insert_url, r.status_code))
+                            publish_successful = False
+                            # we won't break out, since we may be able to publish other mappings
+                            # and duplicates are allowed, so we will push the whole lot again next
+                            # time anyway
+                        else:
+                            self.info("Published mapfile ('%s') line range [%s, %s] to mapper (%s)" % (delta_mapfile, i, i+200, insert_url))
+                    if publish_successful:
+                        # if we get this far, we know we could create all the required git
+                        # notes and we were able to successfully post to mapper, so now
+                        # we can copy the mapfile over "previously generated" version
+                        # so that we don't push to mapper or create git notes for these
+                        # commits again
+                        shutil.copyfile(generated_mapfile, previously_generated_mapfile)
+            else:
+                shutil.copyfile(generated_mapfile, previously_generated_mapfile)
 
     def combine_mapfiles(self):
         """ This method is for any job (l10n, project-branches) that needs to combine
