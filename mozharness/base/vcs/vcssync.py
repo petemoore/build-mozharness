@@ -43,10 +43,10 @@ class VCSSyncScript(VCSScript):
             error_contents = self.get_output_from_command(
                 ["egrep", "-C5", "^[0-9:]+ +(ERROR|CRITICAL|FATAL) -", info_log],
                 silent=True,
-            )
+            )[0:10240] # limit to 10KB in size (large emails fail to send)
         if fatal:
             subject = "[vcs2vcs] Failed conversion for %s" % job_name
-            text = message + '\n\n'
+            text = message[0:10240] + '\n\n' # limit message to 10KB in size (large emails fail to send)
         if not self.successful_repos:
             subject = "[vcs2vcs] Successful no-op conversion for %s" % job_name
         if error_contents and not fatal:
