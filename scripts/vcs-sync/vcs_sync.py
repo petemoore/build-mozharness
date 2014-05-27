@@ -869,7 +869,7 @@ intree=1
             dest = self.query_abs_conversion_dir(repo_config)
             # 'git-mapfile' is created by hggit plugin, containing all the mappings
             complete_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
-            # 'added-to-notes' is the set of mappings known to be recorded in the git notes
+            # 'added-to-git-notes' is the set of mappings known to be recorded in the git notes
             # of the project (typically 'git-mapfile' from previous run)
             added_to_git_notes = os.path.join(dest, '.hg', 'added-to-git-notes')
             # 'delta-git-notes' is the set of new mappings found on this iteration, that
