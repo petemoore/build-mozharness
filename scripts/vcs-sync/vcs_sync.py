@@ -848,6 +848,7 @@ intree=1
                 },
                 error_level=FATAL,
             )
+            generated_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
             self.copy_to_upload_dir(
                 generated_mapfile,
                 dest=repo_config.get('mapfile_name', self.config.get('mapfile_name', "gecko-mapfile")),
