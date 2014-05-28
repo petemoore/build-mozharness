@@ -12,6 +12,7 @@ author: Jordan Lund
 """
 
 import os
+import pprint
 import subprocess
 import re
 import time
@@ -98,8 +99,8 @@ class MakeUploadOutputParser(OutputParser):
                            "'unsigned-unaligned' in m"),
         ('robocopApkUrl', "m.endswith('apk') and 'robocop' in m"),
         ('jsshellUrl', "'jsshell-' in m and m.endswith('.zip')"),
-        ('completeMarUrl', "m.endswith('.complete.mar')"),
         ('partialMarUrl', "m.endswith('.mar') and '.partial.' in m"),
+        ('completeMarUrl', "m.endswith('.mar')"),
     ]
 
     def __init__(self, **kwargs):
@@ -228,7 +229,7 @@ class BuildingConfig(BaseConfig):
             if cf == parser.build_variant:
                 variant_cfg_file = all_config_files[i]
 
-        # now remove these from the list if there was any
+        # now remove these from the list if there was any.
         # we couldn't pop() these in the above loop as mutating a list while
         # iterating through it causes spurious results :)
         for cf in [pool_cfg_file, branch_cfg_file, variant_cfg_file]:
@@ -253,11 +254,6 @@ class BuildingConfig(BaseConfig):
             # take only the specific branch, if present
             branch_configs = parse_config_file(branch_cfg_file)
             if branch_configs.get(parser.branch or ""):
-                print(
-                    'Branch found in file: "builds/branch_specifics.py". '
-                    'Updating self.config with keys/values under '
-                    'branch: "%s".' % (parser.branch,)
-                )
                 all_config_dicts.append(
                     (branch_cfg_file, branch_configs[parser.branch])
                 )
@@ -265,12 +261,6 @@ class BuildingConfig(BaseConfig):
             # take only the specific pool. If we are here, the pool
             # must be present
             build_pool_configs = parse_config_file(pool_cfg_file)
-            print(
-                'Build pool config found in file: '
-                '"builds/build_pool_specifics.py". Updating self.config'
-                ' with keys/values under build pool: '
-                '"%s".' % (parser.build_pool,)
-            )
             all_config_dicts.append(
                 (pool_cfg_file, build_pool_configs[parser.build_pool])
             )
@@ -398,7 +388,7 @@ class BuildOptionParser(object):
                          str(cls.build_variants.keys()),
                          str(cls.config_file_search_path)))
         parser.values.config_files.append(valid_variant_cfg_path)
-        option.dest = valid_variant_cfg_path
+        setattr(parser.values, option.dest, value)  # the pool
 
     @classmethod
     def set_build_pool(cls, option, opt, value, parser):
@@ -489,12 +479,16 @@ BUILD_BASE_CONFIG_OPTIONS = [
         "dest": "pgo_build",
         "default": False,
         "help": "Sets the build to run in PGO mode"}],
-
     [['--enable-nightly'], {
         "action": "store_true",
         "dest": "nightly_build",
         "default": False,
         "help": "Sets the build to run in nightly mode"}],
+    [['--who'], {
+        "dest": "who",
+        "default": '',
+        "help": "stores who made the created the buildbot change."}],
+
 ]
 
 
@@ -514,16 +508,89 @@ class BuildScript(BuildbotMixin, PurgeMixin, MockMixin,
         # separate each build
         self.epoch_timestamp = int(time.mktime(datetime.now().timetuple()))
         self.branch = self.config.get('branch')
-        self.bits = self.config.get('bits')
-        self.platform = self.config.get('platform')
-        if self.bits == '64' and not self.platform.endswith('64'):
-            self.platform += '64'
+        self.stage_platform = self.config.get('stage_platform')
+        if not self.branch or not self.stage_platform:
+            if not self.branch:
+                self.error("'branch' not determined and is required")
+            if not self.stage_platform:
+                self.error("'stage_platform' not determined and is required")
+            self.fatal("Please add missing items to your config")
         self.repo_path = None
-        self.revision = None
         self.buildid = None
         self.builduid = None
         self.query_buildid()  # sets self.buildid
         self.query_builduid()  # sets self.builduid
+
+    def _pre_config_lock(self, rw_config):
+        c = self.config
+        cfg_files_and_dicts = rw_config.all_cfg_files_and_dicts
+        build_pool = c.get('build_pool', '')
+        build_variant = c.get('build_variant', '')
+        variant_cfg = ''
+        if build_variant:
+            variant_cfg = BuildOptionParser.build_variants[build_variant] % (
+                BuildOptionParser.platform,
+                BuildOptionParser.bits
+            )
+        build_pool_cfg = BuildOptionParser.build_pools.get(build_pool)
+        branch_cfg = BuildOptionParser.branch_cfg_file
+
+        cfg_match_msg = "Script was ran with '%(option)s %(type)s' and \
+'%(type)s' matches a key in '%(type_config_file)s'. Updating self.config with \
+items from that key's value."
+        pf_override_msg = "The branch '%(branch)s' has custom behavior for the \
+platform '%(platform)s'. Updating self.config with the following from \
+'platform_overrides' found in '%(pf_cfg_file)s':"
+
+        for i, (target_file, target_dict) in enumerate(cfg_files_and_dicts):
+            if branch_cfg and branch_cfg in target_file:
+                self.info(
+                    cfg_match_msg % {
+                        'option': '--branch',
+                        'type': c['branch'],
+                        'type_config_file': BuildOptionParser.branch_cfg_file
+                    }
+                )
+            if build_pool_cfg and build_pool_cfg in target_file:
+                self.info(
+                    cfg_match_msg % {
+                        'option': '--build-pool',
+                        'type': build_pool,
+                        'type_config_file': BuildOptionParser.build_pools[
+                            build_pool
+                        ]
+                    }
+                )
+            if variant_cfg and variant_cfg in target_file:
+                self.info(
+                    cfg_match_msg % {
+                        'option': '--custom-build-variant-cfg',
+                        'type': build_variant,
+                        'type_config_file': variant_cfg,
+                    }
+                )
+        if c.get("platform_overrides"):
+            if c['stage_platform'] in c['platform_overrides'].keys():
+                self.info(
+                    pf_override_msg % {
+                        'branch': c['branch'],
+                        'platform': c['stage_platform'],
+                        'pf_cfg_file': BuildOptionParser.branch_cfg_file
+                    }
+                )
+                branch_pf_overrides = c['platform_overrides'][
+                    c['stage_platform']
+                ]
+                self.info(pprint.pformat(branch_pf_overrides))
+                c.update(branch_pf_overrides)
+        self.info('To generate a config file based upon options passed and '
+                  'config files used, run script as before but extend options '
+                  'with "--dump-config"')
+        self.info('For a diff of where self.config got its items, '
+                  'run the script again as before but extend options with: '
+                  '"--dump-config-hierarchy"')
+        self.info("Both --dump-config and --dump-config-hierarchy don't "
+                  "actually run any actions.")
 
     def _assert_cfg_valid_for_action(self, dependencies, action):
         """ assert dependency keys are in config for given action.
@@ -645,14 +712,38 @@ or run without that action (ie: --no-{action})"
     def _query_repo(self):
         if self.repo_path:
             return self.repo_path
-        self._assert_cfg_valid_for_action(['repo_base', 'repo_path'], 'build')
         c = self.config
 
         # unlike b2g, we actually supply the repo in mozharness so if it's in
         #  the config, we use that (automation does not require it in
         # buildbot props)
-        self.repo_path = '%s/%s' % (c['repo_base'], c['repo_path'],)
+        if not c.get('repo_path'):
+            repo_path = 'projects/%s' % (self.branch,)
+            self.info(
+                "repo_path not in config. Using '%s' instead" % (repo_path,)
+            )
+        else:
+            repo_path = c['repo_path']
+        self.repo_path = '%s/%s' % (c['repo_base'], repo_path,)
         return self.repo_path
+
+    def _query_who(self):
+        """ looks for who triggered the build with a change.
+
+        This is used for things like try builds where the upload dir is
+        associated with who pushed to try. First it will look in self.config
+        and failing that, will poll buildbot_config
+        If nothing is found, it will default to returning "nobody@example.com"
+        """
+        _who = ''
+        if self.config.get('who'):
+            _who = self.config['who']
+        if self.buildbot_config and 'sourcestamp' in self.buildbot_config:
+            if self.buildbot_config['sourcestamp'].get('who'):
+                _who = self.buildbot_config['sourcestamp']['who']
+        if not _who:
+            _who = "nobody@example.com"
+        return _who
 
     def _skip_buildbot_specific_action(self):
         """ ignore actions from buildbot's infra."""
@@ -704,15 +795,8 @@ or run without that action (ie: --no-{action})"
 
     def _ccache_z(self):
         """clear ccache stats."""
-        self._assert_cfg_valid_for_action(['ccache_env'], 'build')
-        c = self.config
         dirs = self.query_abs_dirs()
         env = self.query_build_env()
-        # update env for just this command
-        ccache_env = copy.deepcopy(c['ccache_env'])
-        ccache_env['CCACHE_BASEDIR'] = c['ccache_env'].get(
-            'CCACHE_BASEDIR', "") % {"base_dir": dirs['base_work_dir']}
-        env.update(c['ccache_env'])
         if os.path.exists(dirs['abs_src_dir']):
             self.run_command(command=['ccache', '-z'],
                              cwd=dirs['abs_src_dir'],
@@ -750,6 +834,11 @@ or run without that action (ie: --no-{action})"
                 self.fatal(ERROR_MSGS['src_mozconfig_path_not_found'])
             self.copyfile(abs_src_mozconfig,
                           os.path.join(dirs['abs_src_dir'], '.mozconfig'))
+            self.info("mozconfig content:")
+            with open(abs_src_mozconfig) as mozconfig:
+                next(mozconfig)
+                for line in mozconfig:
+                    self.info(line)
         else:
             self.fatal("To build, you must supply a mozconfig from inside the "
                        "tree to use use. Please provide the path in your "
@@ -766,27 +855,68 @@ or run without that action (ie: --no-{action})"
         if not c.get('tooltool_manifest_src'):
             return self.warning(ERROR_MSGS['tooltool_manifest_undetermined'])
         fetch_script_path = os.path.join(dirs['abs_tools_dir'],
-                                         'scripts/tooltool/fetch_and_unpack.sh')
+                                         'scripts/tooltool/tooltool_wrapper.sh')
         tooltool_manifest_path = os.path.join(dirs['abs_src_dir'],
                                               c['tooltool_manifest_src'])
         cmd = [
+            'sh',
             fetch_script_path,
             tooltool_manifest_path,
             c['tooltool_url'],
-            c['tooltool_script'],
             c['tooltool_bootstrap'],
         ]
+        cmd.extend(c['tooltool_script'])
         self.info(str(cmd))
         self.run_command(cmd, cwd=dirs['abs_src_dir'])
 
+    def query_revision(self, source_path=None):
+        """ returns the revision of the build
+
+         first will look for it in buildbot_properties and then in
+         buildbot_config. Failing that, it will actually poll the source of
+         the repo if it exists yet.
+        """
+        # this is basically a copy from b2g_build.py
+        # TODO get b2g_build.py to use this version of query_revision
+        if 'revision' in self.buildbot_properties:
+            return self.buildbot_properties['revision']
+
+        if self.buildbot_config and self.buildbot_config.get('revision'):
+            return self.buildbot_config['revision']
+
+        if self.buildbot_config and self.buildbot_config.get('sourcestamp'):
+            return self.buildbot_config['sourcestamp']['revision']
+
+        if not source_path:
+            dirs = self.query_abs_dirs()
+            source_path = dirs['abs_src_dir']  # let's take the default
+
+        # Look at what we have checked out
+        if os.path.exists(source_path):
+            hg = self.query_exe('hg', return_type='list')
+            return self.get_output_from_command(
+                hg + ['parent', '--template', '{node|short}'], cwd=source_path
+            )
+
+        return None
+
     def _checkout_source(self):
         """use vcs_checkout to grab source needed for build."""
-        if self.revision:
-            return self.revision
         c = self.config
         dirs = self.query_abs_dirs()
         repo = self._query_repo()
-        rev = self.vcs_checkout(repo=repo, dest=dirs['abs_src_dir'])
+        vcs_checkout_kwargs = {
+            'repo': repo,
+            'dest': dirs['abs_src_dir'],
+            'revision': self.query_revision(),
+            'env': self.query_build_env()
+        }
+        if c.get('clone_by_revision'):
+            vcs_checkout_kwargs['clone_by_revision'] = True
+
+        if c.get('clone_with_purge'):
+            vcs_checkout_kwargs['clone_with_purge'] = True
+        rev = self.vcs_checkout(**vcs_checkout_kwargs)
         if c.get('is_automation'):
             changes = self.buildbot_config['sourcestamp']['changes']
             if changes:
@@ -799,8 +929,20 @@ or run without that action (ie: --no-{action})"
             self.set_buildbot_property('got_revision',
                                        rev[:12],
                                        write_to_file=True)
-        self.revision = rev[:12]
-        return self.revision
+
+    def _count_vsize(self):
+        """gets linker vsize and sets it to testresults."""
+        dirs = self.query_abs_dirs()
+        vsize_path = os.path.join(
+            dirs['abs_obj_dir'], 'toolkit', 'library', 'linker-vsize'
+        )
+        cmd = ['cat', vsize_path]
+        vsize = int(self.get_output_from_command(cmd, cwd=dirs['abs_src_dir']))
+        testresults = [('libxul_link', 'libxul_link', vsize, str(vsize))]
+        self.set_buildbot_property('vsize', vsize, write_to_file=True)
+        self.set_buildbot_property('testresults',
+                                   testresults,
+                                   write_to_file=True)
 
     def _count_ctors(self):
         """count num of ctors and set testresults."""
@@ -829,8 +971,7 @@ or run without that action (ie: --no-{action})"
     def _create_complete_mar(self):
         # TODO use mar.py MIXINs
         self._assert_cfg_valid_for_action(
-            ['mock_target', 'complete_mar_pattern'],
-            'make-update'
+            ['complete_mar_pattern'], 'make-update'
         )
         self.info('Creating a complete mar:')
         c = self.config
@@ -851,10 +992,12 @@ or run without that action (ie: --no-{action})"
         update_pkging_path = os.path.join(dirs['abs_obj_dir'],
                                           'tools',
                                           'update-packaging')
-        self.run_mock_command(c['mock_target'],
-                              command='make -C %s' % (update_pkging_path,),
-                              cwd=dirs['abs_src_dir'],
-                              env=env)
+        self.run_command_m(
+            command='%s -C %s' % (self.query_exe('make', return_type='string'),
+                                  update_pkging_path,),
+            cwd=dirs['abs_src_dir'],
+            env=env
+        )
         self._set_file_properties(file_name=c['complete_mar_pattern'],
                                   find_dir=dist_update_dir,
                                   prop_type='completeMar')
@@ -862,7 +1005,7 @@ or run without that action (ie: --no-{action})"
     def _create_partial_mar(self):
         # TODO use mar.py MIXINs and make this simpler
         self._assert_cfg_valid_for_action(
-            ['mock_target', 'update_env', 'platform_ftp_name', 'stage_server'],
+            ['update_env', 'platform_ftp_name', 'stage_server'],
             'upload'
         )
         self.info('Creating a partial mar:')
@@ -890,11 +1033,11 @@ or run without that action (ie: --no-{action})"
         cmd = '%s %s %s' % (self.query_exe('perl'),
                             abs_unwrap_update_path,
                             os.path.join(dist_update_dir, mar_file))
-        self.run_mock_command(c['mock_target'],
-                              command=cmd,
-                              cwd=os.path.join(dirs['abs_obj_dir'], 'current'),
-                              env=update_env,
-                              halt_on_failure=True)
+        self.run_command_m(command=cmd,
+                           cwd=os.path.join(dirs['abs_obj_dir'], 'current'),
+                           env=update_env,
+                           halt_on_failure=True,
+                           fatal_exit_code=3)
         # The mar file name will be the same from one day to the next,
         # *except* when we do a version bump for a release. To cope with
         # this, we get the name of the previous complete mar directly
@@ -925,11 +1068,9 @@ or run without that action (ie: --no-{action})"
         cmd = '%s %s %s' % (self.query_exe('perl'),
                             abs_unwrap_update_path,
                             os.path.join(dist_update_dir, 'previous.mar'))
-        self.run_mock_command(c['mock_target'],
-                              command=cmd,
-                              cwd=os.path.join(dirs['abs_obj_dir'],
-                                               'previous'),
-                              env=update_env)
+        self.run_command_m(command=cmd,
+                           cwd=os.path.join(dirs['abs_obj_dir'], 'previous'),
+                           env=update_env)
         # Extract the build ID from the unpacked previous complete mar.
         previous_buildid = self._query_previous_buildid()
         self.info('removing pgc files from previous and current dirs')
@@ -960,11 +1101,12 @@ or run without that action (ie: --no-{action})"
             'DST_BUILD': '../../current',
             'DST_BUILD_ID': self.query_buildid()
         })
-        cmd = 'make -C tools/update-packaging partial-patch'
-        self.run_mock_command(c.get('mock_target'),
-                              command=cmd,
-                              cwd=dirs['abs_obj_dir'],
-                              env=update_env)
+        cmd = '%s -C tools/update-packaging partial-patch' % (
+            self.query_exe('make', return_type='string')
+        )
+        self.run_command_m(command=cmd,
+                           cwd=dirs['abs_obj_dir'],
+                           env=update_env)
         self.rmtree(os.path.join(dist_update_dir, 'previous.mar'))
         self._set_file_properties(file_name=c['partial_mar_pattern'],
                                   find_dir=dist_update_dir,
@@ -1087,7 +1229,8 @@ or run without that action (ie: --no-{action})"
         self.info("finding previous mar's inipath...")
         prev_ini_path = self.get_output_from_command(cmd,
                                                      cwd=dirs['abs_obj_dir'],
-                                                     halt_on_failure=True)
+                                                     halt_on_failure=True,
+                                                     fatal_exit_code=3)
         print_conf_path = os.path.join(dirs['abs_src_dir'],
                                        'config',
                                        'printconfigsetting.py')
@@ -1108,22 +1251,45 @@ or run without that action (ie: --no-{action})"
         # TODO support more from postUploadCmdPrefix()
         # as needed (as we introduce builds that use it)
         # h.m.o/build/buildbotcustom/process/factory.py#l119
+
         self._assert_cfg_valid_for_action(['stage_product'], 'upload')
         c = self.config
         post_upload_cmd = ["post_upload.py"]
         buildid = self.query_buildid()
-        # if checkout src/dest exists, this should just return the rev
-        revision = self._checkout_source()
-        platform = self.platform
+        revision = self.query_revision()
+        platform = self.stage_platform
+        who = self._query_who()
         if c.get('pgo_build'):
             platform += '-pgo'
-        tinderbox_build_dir = "%s-%s" % (self.branch, platform)
 
+        if c.get('tinderbox_build_dir'):
+            # TODO find out if we should fail here like we are
+            if not who and revision:
+                self.fatal("post upload failed. --tinderbox-builds-dir could "
+                           "not be determined. 'who' and/or 'revision unknown")
+            # branches like try will use 'tinderbox_build_dir
+            tinderbox_build_dir = c['tinderbox_build_dir'] % {
+                'who': who,
+                'got_revision': revision
+            }
+        else:
+            # the default
+            tinderbox_build_dir = "%s-%s" % (self.branch, platform)
+
+        if who:
+            post_upload_cmd.extend(["--who", who])
+        if c.get('include_post_upload_builddir'):
+            post_upload_cmd.extend(
+                ["--builddir", "%s-%s" % (self.branch, platform)]
+            )
         post_upload_cmd.extend(["--tinderbox-builds-dir", tinderbox_build_dir])
         post_upload_cmd.extend(["-p", c['stage_product']])
         post_upload_cmd.extend(['-i', buildid])
         post_upload_cmd.extend(['--revision', revision])
-        post_upload_cmd.append('--release-to-tinderbox-dated-builds')
+        if c.get('to_tinderbox_dated'):
+            post_upload_cmd.append('--release-to-tinderbox-dated-builds')
+        if c.get('release_to_try_builds'):
+            post_upload_cmd.append('--release-to-try-builds')
         if self.query_is_nightly():
             post_upload_cmd.extend(['-b', self.branch])
             post_upload_cmd.append('--release-to-dated')
@@ -1197,9 +1363,6 @@ or run without that action (ie: --no-{action})"
         # differently. these should be merged. however, snippet logic is on
         # it's way out. It's only used as a backup for balrog so it is not
         # high priority to port to signing.py
-        self._assert_cfg_valid_for_action(
-            ['mock_target'], 'update'
-        )
         if snippet_type == 'complete':
             error_level = FATAL
         else:
@@ -1269,8 +1432,25 @@ or run without that action (ie: --no-{action})"
                        " path to your config via: 'balrog_credentials_file'")
         self.info("Submitting Balrog updates...")
         self.retry(
-            self.run_command, args=(cmd,), kwargs={'halt_on_failure': True}
+            self.run_command, args=(cmd,),
+            kwargs={
+                'halt_on_failure': True,
+                'fatal_exit_code': 3,
+            }
         )
+
+    def clone_tools(self):
+        """clones the tools repo."""
+        self._assert_cfg_valid_for_action(['tools_repo'], 'clone_tools')
+        c = self.config
+        dirs = self.query_abs_dirs()
+        repo = {
+            'repo': c['tools_repo'],
+            'vcs': 'hg',
+            'dest': dirs['abs_tools_dir'],
+            'output_timeout': 1200,
+        }
+        self.vcs_checkout(**repo)
 
     def preflight_build(self):
         """set up machine state for a complete build."""
@@ -1289,14 +1469,15 @@ or run without that action (ie: --no-{action})"
     def build(self):
         """build application."""
         # dependencies in config see _pre_config_lock
-        base_cmd = 'make -f client.mk build'
+        base_cmd = '%s -f client.mk build' % (
+            self.query_exe('make', return_type='string'),
+        )
         cmd = base_cmd + ' MOZ_BUILD_DATE=%s' % (self.query_buildid(),)
         if self.config.get('pgo_build'):
             cmd += ' MOZ_PGO=1'
-        self.run_mock_command(self.config.get('mock_target'),
-                              command=cmd,
-                              cwd=self.query_abs_dirs()['abs_src_dir'],
-                              env=self.query_build_env())
+        self.run_command_m(command=cmd,
+                           cwd=self.query_abs_dirs()['abs_src_dir'],
+                           env=self.query_build_env())
 
     def generate_build_props(self):
         """set buildid, sourcestamp, appVersion, and appName."""
@@ -1331,40 +1512,40 @@ or run without that action (ie: --no-{action})"
     def generate_build_stats(self):
         """grab build stats following a compile.
 
-        This action handles all statitics from a build:
-        count_ctors and graph_server_post.
-        We only count_ctors for linux platforms and we only post to
-        graph_server if this is not a nightly build
+        This action handles all statitics from a build: 'count_ctors' and
+        'vsize' and then posts to graph server the results.
+        We only post to graph server for non nightly build
         """
-
-        # NOTE: before this implementation, we would only tinderboxprint the
-        # num_ctors to the log if this was a nightly build. I don't think
-        # it's any harm doing so even if this is not nightly for the
-        # benefit of making a simpler logic flow like below.
         c = self.config
-        if not self.query_is_nightly() or c.get('enable_count_ctors'):
+        # enable_max_vsize will be True for builds like pgo win32 builds
+        enable_max_vsize = c.get('enable_max_vsize') and c.get('pgo_build')
+        if not enable_max_vsize or c.get('enable_count_ctors'):
             if c.get('enable_count_ctors'):
+                self.info("counting ctors...")
                 self._count_ctors()
                 num_ctors = self.buildbot_properties.get('num_ctors', 'unknown')
                 self.info("TinderboxPrint: num_ctors: %s" % (num_ctors,))
+            if enable_max_vsize:
+                self.info("getting vsize...")
+                self._count_vsize()
             if not self.query_is_nightly():
                 self._graph_server_post()
             else:
                 self.info("We are not posting to graph server as this is a "
                           "nightly build.")
         else:
-            self.info("Nothing to do for this action since we disabled "
-                      "count_ctors and we don't post to graph server for "
-                      "nightlies")
+            self.info("Nothing to do for this action since ctors and vsize "
+                      "counts are disabled for this build.")
 
     def symbols(self):
         c = self.config
         cwd = self.query_abs_dirs()['abs_obj_dir']
         env = self.query_build_env()
-        self.run_mock_command(c.get('mock_target'),
-                              command='make buildsymbols',
-                              cwd=cwd,
-                              env=env)
+        self.run_command_m(
+            command='%s buildsymbols' % (self.query_exe('make',
+                                                        return_type='string'),),
+            cwd=cwd, env=env
+        )
         # TODO this condition might be extended with xul, valgrind, etc as more
         # variants are added
         # not all nightly platforms upload symbols!
@@ -1381,7 +1562,7 @@ or run without that action (ie: --no-{action})"
             # platform and branch for 64 bit platforms
             moz_symbols_extra_buildid = ''
             if c.get('use_platform_in_symbols_extra_buildid'):
-                moz_symbols_extra_buildid += self.platform
+                moz_symbols_extra_buildid += self.stage_platform
             if c.get('use_branch_in_symbols_extra_buildid'):
                 if moz_symbols_extra_buildid:
                     moz_symbols_extra_buildid += '-%s' % (self.branch,)
@@ -1390,35 +1571,34 @@ or run without that action (ie: --no-{action})"
             if moz_symbols_extra_buildid:
                 env['MOZ_SYMBOLS_EXTRA_BUILDID'] = moz_symbols_extra_buildid
             self.retry(
-                self.run_mock_command,
-                kwargs={'mock_target': c.get('mock_target'),
-                        'command': 'make uploadsymbols',
-                        'cwd': cwd,
-                        'env': env}
+                self.run_command_m,
+                kwargs={
+                    'command': '%s uploadsymbols' % (
+                        self.query_exe('make', return_type='string'),
+                    ),
+                    'cwd': cwd,
+                    'env': env
+                }
             )
 
     def packages(self):
-        self._assert_cfg_valid_for_action(['mock_target', 'package_filename'],
-                                          'make-packages')
         c = self.config
         cwd = self.query_abs_dirs()['abs_obj_dir']
 
-        # make package-tests
-        if c.get('enable_package_tests'):
-            self.run_mock_command(c['mock_target'],
-                                  command='make package-tests',
-                                  cwd=cwd,
-                                  env=self.query_build_env())
-
-        # make package
-        self.run_mock_command(c['mock_target'],
-                              command='make package',
-                              cwd=cwd,
-                              env=self.query_build_env())
+        if c.get('package_targets'):
+            for package_target in c['package_targets']:
+                cmd = '%s %s' % (self.query_exe('make', return_type='string'),
+                                 package_target)
+                self.run_command_m(
+                    command=cmd, cwd=cwd, env=self.query_build_env()
+                )
+        else:
+            self.warning("No package targets to make. Please add them to "
+                         "'package_targets' in your config.")
 
     def upload(self):
         self._assert_cfg_valid_for_action(
-            ['mock_target', 'upload_env', 'create_snippets',
+            ['upload_env', 'create_snippets',
              'platform_supports_snippets', 'create_partial',
              'platform_supports_partials', 'stage_server'], 'upload'
         )
@@ -1443,11 +1623,13 @@ or run without that action (ie: --no-{action})"
                                         log_obj=self.log_obj)
         cwd = self.query_abs_dirs()['abs_obj_dir']
         self.retry(
-            self.run_mock_command, kwargs={'mock_target': c.get('mock_target'),
-                                           'command': 'make upload',
-                                           'cwd': cwd,
-                                           'env': upload_env,
-                                           'output_parser': parser}
+            self.run_command_m, kwargs={
+                'command': '%s upload' % (self.query_exe('make',
+                                                         return_type='string'),),
+                'cwd': cwd,
+                'env': upload_env,
+                'output_parser': parser
+            }
         )
         if parser.tbpl_status != TBPL_SUCCESS:
             self.add_summary("make upload failed")
@@ -1476,43 +1658,53 @@ or run without that action (ie: --no-{action})"
         # if not self.uploadMulti when we introduce a platform/build that uses
         # uploadMulti
 
-        if c.get('enable_talos_sendchange'):  # do talos sendchange
+        if c.get('enable_talos_sendchange'):
             if c.get('pgo_build'):
                 build_type = 'pgo-'
             else:  # we don't do talos sendchange for debug so no need to check
                 build_type = ''  # leave 'opt' out of branch for talos
             talos_branch = "%s-%s-%s%s" % (self.branch,
-                                           self.platform,
+                                           self.stage_platform,
                                            build_type,
                                            'talos')
             self.sendchange(downloadables=[installer_url],
                             branch=talos_branch,
                             username='sendchange',
                             sendchange_props=sendchange_props)
-        if c.get('enable_package_tests'):  # do unittest sendchange
-            if c.get('pgo_build'):
-                build_type = 'pgo'
-            elif c.get('debug_build'):
-                build_type = 'debug'
+        if 'package-tests' in c.get('package_targets', []):
+            # do unittest sendchange
+
+            # we need a way to make opt builds use pgo branch sendchanges.
+            # if the branch supports per_checkin and this platform is in
+            # pgo platforms (see branch_specifics.py), use pgo instead of opt.
+            override_opt_branch = (self.stage_platform in c['pgo_platforms'] and
+                                   c.get('branch_uses_per_checkin_strategy'))
+            if c.get('pgo_build') or override_opt_branch:
+                build_type = '-pgo'
+            elif c.get('debug_build'):  # for debug builds we append nothing
+                build_type = ''
             else:  # generic opt build
-                build_type = 'opt'
-            unittest_branch = "%s-%s-%s-%s" % (self.branch,
-                                               self.platform,
-                                               build_type,
-                                               'unittest')
+                build_type = '-opt'
+            if c.get('unittest_platform'):
+                platform = c['unittest_platform']
+            else:
+                platform = self.stage_platform
+            full_unittest_platform = "%s%s" % (platform, build_type)
+            unittest_branch = "%s-%s-%s" % (self.branch,
+                                            full_unittest_platform,
+                                            'unittest')
             self.sendchange(downloadables=[installer_url, tests_url],
                             branch=unittest_branch,
                             sendchange_props=sendchange_props)
 
     def pretty_names(self):
-        self._assert_cfg_valid_for_action(
-            ['mock_target'], 'pretty-names'
-        )
         c = self.config
         dirs = self.query_abs_dirs()
         # we want the env without MOZ_SIGN_CMD
         env = self.query_build_env(skip_keys=['MOZ_SIGN_CMD'])
-        base_cmd = 'make %s MOZ_PKG_PRETTYNAMES=1'
+        base_cmd = '%s %%s MOZ_PKG_PRETTYNAMES=1' % (
+            self.query_exe('make', return_type='string'),
+        )
 
         # TODO  port below from process/factory.py line 1526 if we end up
         # porting mac before x-compiling
@@ -1523,66 +1715,51 @@ or run without that action (ie: --no-{action})"
         #                  command=self.makeCmd + [
         #                  '-f', 'client.mk', 'postflight_all'],
 
-        package_targets = ['package']
-        # TODO  port below from process/factory.py line 1543
-        # WINDOWS IMPLEMENTATION
-        # if self.enableInstaller:
-        #     pkg_targets.append('installer')
-        for target in package_targets:
-            self.run_mock_command(c['mock_target'],
-                                  command=base_cmd % (target,),
-                                  cwd=dirs['abs_obj_dir'],
-                                  env=env)
+        for package_target in c.get('package_targets', []):
+            self.run_command_m(command=base_cmd % (package_target,),
+                               cwd=dirs['abs_obj_dir'],
+                               env=env)
         update_package_cmd = '-C %s' % (os.path.join(dirs['abs_obj_dir'],
                                                      'tools',
                                                      'update-packaging'),)
-        self.run_mock_command(c['mock_target'],
-                              command=base_cmd % (update_package_cmd,),
-                              cwd=dirs['abs_src_dir'],
-                              env=env)
+        self.run_command_m(command=base_cmd % (update_package_cmd,),
+                           cwd=dirs['abs_src_dir'],
+                           env=env)
         if c.get('do_pretty_name_l10n_check'):
-            self.run_mock_command(c['mock_target'],
-                                  command=base_cmd % ("l10n-check",),
-                                  cwd=dirs['abs_obj_dir'],
-                                  env=env)
+            self.run_command_m(command=base_cmd % ("l10n-check",),
+                               cwd=dirs['abs_obj_dir'],
+                               env=env)
 
     def check_l10n(self):
-        self._assert_cfg_valid_for_action(
-            ['mock_target'], 'check-l10n'
-        )
-        c = self.config
         dirs = self.query_abs_dirs()
         # we want the env without MOZ_SIGN_CMD
         env = self.query_build_env(skip_keys=['MOZ_SIGN_CMD'])
-        self.run_mock_command(c['mock_target'],
-                              command='make l10n-check',
-                              cwd=dirs['abs_obj_dir'],
-                              env=env)
+        self.run_command_m(
+            command='%s l10n-check' % (self.query_exe('make',
+                                                      return_type='string'),),
+            cwd=dirs['abs_obj_dir'],
+            env=env
+        )
 
     def check_test(self):
         self._assert_cfg_valid_for_action(
-            ['mock_target', 'check_test_env'], 'check-test'
+            ['check_test_env', 'enable_checktests'], 'check-test'
         )
-        if self.query_is_nightly():
+        c = self.config
+        if not c['enable_checktests']:
             self.info("Skipping action because this is a nightly run...")
             return
-        self._assert_cfg_valid_for_action(['check_test_env'],
-                                          'check-test-complete')
-        c = self.config
         dirs = self.query_abs_dirs()
-        abs_check_test_env = {}
-        for env_var, env_value in c['check_test_env'].iteritems():
-            abs_check_test_env[env_var] = os.path.join(dirs['abs_tools_dir'],
-                                                       env_value)
         env = self.query_build_env()
-        env.update(abs_check_test_env)
+        for env_var, env_value in c['check_test_env'].iteritems():
+            env[env_var] = env_value % dirs
         parser = CheckTestCompleteParser(config=c,
                                          log_obj=self.log_obj)
-        self.run_mock_command(c['mock_target'],
-                              command='make -k check',
-                              cwd=dirs['abs_obj_dir'],
-                              env=env,
-                              output_parser=parser)
+        self.run_command_m(
+            command='%s -k check' % (self.query_exe('make',
+                                                    return_type='string'),),
+            cwd=dirs['abs_obj_dir'], env=env, output_parser=parser
+        )
         parser.evaluate_parser()
 
     def update(self):
@@ -1597,8 +1774,8 @@ or run without that action (ie: --no-{action})"
         c = self.config
         dirs = self.query_abs_dirs()
         created_partial_snippet = False
-        if (not (self.query_is_nightly() or not c['create_snippets']) and
-                c['platform_supports_snippets']):
+        if (not self.query_is_nightly() or not c['create_snippets'] or
+                not c['platform_supports_snippets']):
             self.info("Skipping action because this action is only done for "
                       "nightlies and that support/enable snippets...")
             return
@@ -1698,7 +1875,8 @@ or run without that action (ie: --no-{action})"
             self._submit_balrog_updates()
             #####
 
-    def enable_ccache(self):
+    def ccache_stats(self):
+        """print ccache stats. only done for unix like platforms"""
         dirs = self.query_abs_dirs()
         env = self.query_build_env()
         cmd = ['ccache', '-s']

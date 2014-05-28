@@ -1,22 +1,22 @@
 config = {
     'default_actions': [
         'clobber',
-        'pull',
+        'clone-tools',
         'setup-mock',
         'build',
         'generate-build-props',
         'generate-build-stats',
         'symbols',
-        # 'packages',
+        'packages',
         # 'upload',
         # 'sendchanges',
         'pretty-names',
         'check-l10n',
         # 'check-test',
         'update',  # decided by query_is_nightly()
-        'enable-ccache',
-        ],
-    'platform': 'linux64-nonunified',
+        'ccache-stats',
+    ],
+    'stage_platform': 'linux64-nonunified',
 
     #### 64 bit build specific #####
     'src_mozconfig': 'browser/config/mozconfigs/linux64/nightly-nonunified',

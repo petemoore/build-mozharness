@@ -8,6 +8,7 @@
 """
 
 import os
+import pprint
 import urllib2
 try:
     import simplejson as json
@@ -16,7 +17,7 @@ except ImportError:
     import json
 
 from mozharness.base.errors import SSHErrorList
-from mozharness.base.log import ERROR
+from mozharness.base.log import DEBUG, ERROR
 
 
 # TransferMixin {{{1
@@ -31,7 +32,7 @@ class TransferMixin(object):
                                rsync_options=None,
                                error_level=ERROR,
                                create_remote_directory=True,
-                              ):
+                               ):
         """
         Create a remote directory and upload the contents of
         a local directory to it via rsync+ssh.
@@ -63,8 +64,8 @@ class TransferMixin(object):
                 return -2
         if self.run_command([rsync, '-e',
                              '%s -oIdentityFile=%s' % (ssh, ssh_key)
-                            ] + rsync_options + ['.',
-                             '%s@%s:%s/' % (ssh_user, remote_host, remote_path)],
+                             ] + rsync_options + ['.',
+                            '%s@%s:%s/' % (ssh_user, remote_host, remote_path)],
                             cwd=local_path,
                             return_type='num_errors',
                             error_list=SSHErrorList):
@@ -75,7 +76,7 @@ class TransferMixin(object):
                                  remote_path, local_path,
                                  rsync_options=None,
                                  error_level=ERROR,
-                                ):
+                                 ):
         """
         Create a remote directory and upload the contents of
         a local directory to it via rsync+ssh.
@@ -93,17 +94,23 @@ class TransferMixin(object):
             return -1
         if self.run_command([rsync, '-e',
                              '%s -oIdentityFile=%s' % (ssh, ssh_key)
-                            ] + rsync_options + [
-                             '%s@%s:%s/' % (ssh_user, remote_host, remote_path),
-                             '.'],
+                             ] + rsync_options + [
+                            '%s@%s:%s/' % (ssh_user, remote_host, remote_path),
+                            '.'],
                             cwd=local_path,
                             return_type='num_errors',
                             error_list=SSHErrorList):
             self.log("Unable to rsync %s:%s to %s!" % (remote_host, remote_path, local_path), level=error_level)
             return -3
 
-    def load_json_from_url(self, url, timeout=30):
-        self.debug("Attempting to download %s; timeout=%i" % (url, timeout))
-        r = urllib2.urlopen(url, timeout=timeout)
-        j = json.load(r)
+    def load_json_from_url(self, url, timeout=30, log_level=DEBUG):
+        self.log("Attempting to download %s; timeout=%i" % (url, timeout),
+                 level=log_level)
+        try:
+            r = urllib2.urlopen(url, timeout=timeout)
+            j = json.load(r)
+            self.log(pprint.pformat(j), level=log_level)
+        except:
+            self.exception(message="Unable to download %s!" % url)
+            raise
         return j

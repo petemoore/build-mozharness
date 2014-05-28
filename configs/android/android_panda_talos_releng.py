@@ -31,7 +31,7 @@ config = {
         "--remoteDevice=%(device_ip)s",
         "--sampleConfig=remote.config",
         "--output=local.yml",
-        "--webServer=bm-remote.build.mozilla.org",
+        "--webServer=talos-remote.pvt.build.mozilla.org",
         "--browserWait=60"
     ],
     #run_tests.py options
@@ -58,7 +58,7 @@ config = {
         "http://pypi.pub.build.mozilla.org/pub",
     ],
     "buildbot_json_path": "buildprops.json",
-    "mobile_imaging_format": "http://mobile-imaging-%03i.p%i.releng.scl1.mozilla.com",
+    "mobile_imaging_format": "http://mobile-imaging",
     "mozpool_assignee": socket.gethostname(),
     "default_actions": [
         'clobber',

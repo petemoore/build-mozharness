@@ -11,17 +11,11 @@ import sys
 # load modules from parent dir
 sys.path.insert(1, os.path.dirname(sys.path[0]))
 
-from mozharness.base.gaia_test import GaiaTest
-from mozharness.base.log import ERROR
-from mozharness.base.errors import BaseErrorList
+from mozharness.mozilla.testing.gaia_test import GaiaTest
 from mozharness.mozilla.testing.unittest import TestSummaryOutputParserHelper
 
 
 class GaiaIntegrationTest(GaiaTest):
-
-    npm_error_list = BaseErrorList + [
-        {'substr': r'''npm ERR! Error:''', 'level': ERROR}
-    ]
 
     def __init__(self, require_config_file=False):
       GaiaTest.__init__(self, require_config_file)
@@ -40,29 +34,7 @@ class GaiaIntegrationTest(GaiaTest):
             overwrite='clobber'
         )
 
-        self.run_command(['npm', 'cache', 'clean'])
-
-        # run 'make node_modules' first, so we can separately handle
-        # errors that occur here
-        cmd = ['make',
-               'node_modules',
-               'NODE_MODULES_GIT_URL=https://git.mozilla.org/b2g/gaia-node-modules.git']
-        kwargs = {
-            'cwd': dirs['abs_gaia_dir'],
-            'output_timeout': 300,
-            'error_list': self.npm_error_list
-        }
-        code = self.retry(self.run_command, attempts=3, good_statuses=(0,),
-                          args=[cmd], kwargs=kwargs)
-        if code:
-            # Dump npm-debug.log, if it exists
-            npm_debug = os.path.join(dirs['abs_gaia_dir'], 'npm-debug.log')
-            if os.access(npm_debug, os.F_OK):
-                self.info('dumping npm-debug.log')
-                self.run_command(['cat', npm_debug])
-            else:
-                self.info('npm-debug.log doesn\'t exist, not dumping')
-            self.fatal('Errors during \'npm install\'', exit_code=code)
+        self.make_node_modules()
 
         output_parser = TestSummaryOutputParserHelper(
           config=self.config, log_obj=self.log_obj, error_list=self.error_list)

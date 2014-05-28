@@ -69,7 +69,7 @@ class WebPlatformTest(TestingMixin, MercurialScript, BlobUploadMixin):
         dirs = {}
         dirs['abs_app_install_dir'] = os.path.join(abs_dirs['abs_work_dir'], 'application')
         dirs['abs_test_install_dir'] = os.path.join(abs_dirs['abs_work_dir'], 'tests')
-        dirs["abs_wpttest_dir"] = os.path.join(dirs['abs_test_install_dir'], "web-platform-tests")
+        dirs["abs_wpttest_dir"] = os.path.join(dirs['abs_test_install_dir'], "web-platform")
         dirs['abs_blob_upload_dir'] = os.path.join(abs_dirs['abs_work_dir'], 'blobber_upload_dir')
 
         abs_dirs.update(dirs)
@@ -129,9 +129,7 @@ class WebPlatformTest(TestingMixin, MercurialScript, BlobUploadMixin):
                                                    "wpt_structured_full.log"),
                      "--binary=%s" % self.binary_path]
 
-        pos_args = [os.path.join(dirs["abs_wpttest_dir"], "tests")]
-
-        options = c["options"]
+        options = list(c.get("options", [])) + list(self.tree_config["options"])
 
         str_format_values = {
             'binary_path': self.binary_path,
@@ -141,7 +139,7 @@ class WebPlatformTest(TestingMixin, MercurialScript, BlobUploadMixin):
 
         options = [item % str_format_values for item in options]
 
-        return base_cmd + options + pos_args
+        return base_cmd + options
 
     def run_tests(self):
         dirs = self.query_abs_dirs()
