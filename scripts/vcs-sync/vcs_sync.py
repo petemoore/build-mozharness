@@ -15,7 +15,6 @@ import mmap
 import os
 import pprint
 import re
-import shutil
 import sys
 import time
 
@@ -89,8 +88,6 @@ class HgGitScript(VirtualenvMixin, TooltoolMixin, TransferMixin, VCSSyncScript):
                 'create-virtualenv',
                 'update-stage-mirror',
                 'update-work-mirror',
-                'create-git-notes',
-                'publish-to-mapper',
                 'push',
                 'combine-mapfiles',
                 'upload',
@@ -414,8 +411,6 @@ intree=1
             """
         commands = []
         if refs_list:
-            # to skip pushing tags, uncomment (useful for testing)
-            # refs_list = [x for x in refs_list if 'tags' not in x]
             while len(refs_list) > 10:
                 commands.append(base_command + refs_list[0:10])
                 refs_list = refs_list[10:]
@@ -480,8 +475,9 @@ intree=1
                 # We query hg for these because the conversion dir will have
                 # branches from multiple hg repos, and the regexes may match
                 # too many things.
-                # always include refs/notes/commits for git notes taken of hg shas
-                refs_list = ['+refs/notes/commits:refs/notes/commits']
+                refs_list = []
+                if repo_config.get('generate_git_notes', False):
+                    refs_list.append('+refs/notes/commits:refs/notes/commits')
                 branch_map = self.query_branches(
                     target_config.get('branch_config', repo_config.get('branch_config', {})),
                     source_dir,
@@ -753,12 +749,15 @@ intree=1
 
             This is somewhat equivalent to:
                ( [ ! -f "${old_file}" ] && cat "${new_file}" || diff "${old_file}" "${new_file}" | sed -n 's/> //p' ) | sort -k2"""
-        try:
-            with open(old_file, 'rt') as old:
-                old_set = frozenset(old)
-        except:
-            old_set = frozenset()
-        with open(new_file, 'rt') as new:
+        with self.opened(old_file) as (old, err):
+            if err:
+                self.info('Map file %s not found - probably first time this has run.' % old_file)
+                old_set = frozenset()
+            old_set = frozenset(old)
+        with self.opened(new_file, 'rt') as (new, err):
+            if err:
+                self.error('Could not read contents of map file %s:\n%s' % (new_file, err.message))
+                new_set = frozenset()
             new_set = frozenset(new)
         for line in sorted(new_set.difference(old_set), key=lambda line: line.partition(' ')[2]):
             yield line
@@ -866,49 +865,55 @@ intree=1
     def create_git_notes(self):
         git = self.query_exe("git", return_type="list")
         for repo_config in self.query_all_repos():
-            dest = self.query_abs_conversion_dir(repo_config)
-            # 'git-mapfile' is created by hggit plugin, containing all the mappings
-            complete_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
-            # 'added-to-git-notes' is the set of mappings known to be recorded in the git notes
-            # of the project (typically 'git-mapfile' from previous run)
-            added_to_git_notes = os.path.join(dest, '.hg', 'added-to-git-notes')
-            # 'delta-git-notes' is the set of new mappings found on this iteration, that
-            # now need to be added to the git notes of the project (the diff between the
-            # previous two files described)
-            delta_git_notes = os.path.join(dest, '.hg', 'delta-git-notes')
-            git_dir = os.path.join(dest, '.git')
             repo = repo_config['repo']
-            if os.path.exists(delta_git_notes):
-                os.remove(delta_git_notes)
-            git_notes_adding_successful = True
-            with open(delta_git_notes, "w") as delta_out:
-                for sha_lookup in self.pull_out_new_sha_lookups(added_to_git_notes, complete_mapfile):
-                    print >>delta_out, sha_lookup,
-                    (git_sha, hg_sha) = sha_lookup.split()
-                    # only add git note if not already there - note
-                    # devs may have added their own notes, so don't
-                    # replace any existing notes, just add to them
-                    output = self.get_output_from_command(
-                        git + ['notes', 'show', git_sha],
-                        cwd=git_dir,
-                        ignore_errors=True
-                    )
-                    git_note_text='Upstream source: %s/rev/%s' % (repo, hg_sha)
-                    git_notes_add_return_code = 1
-                    if not output or output.find(git_note_text) < 0:
-                        git_notes_add_return_code = self.run_command(
-                            git + ['notes', 'append', '-m', git_note_text, git_sha],
-                            cwd=git_dir
-                        )
-                    # if note was successfully added, or it was already there, we can
-                    # mark it as added, by putting it in the delta file...
-                    if git_notes_add_return_code == 0 or output.find(git_note_text) >= 0:
+            if repo_config.get('generate_git_notes', False):
+                dest = self.query_abs_conversion_dir(repo_config)
+                # 'git-mapfile' is created by hggit plugin, containing all the mappings
+                complete_mapfile = os.path.join(dest, '.hg', 'git-mapfile')
+                # 'added-to-git-notes' is the set of mappings known to be recorded in the git notes
+                # of the project (typically 'git-mapfile' from previous run)
+                added_to_git_notes = os.path.join(dest, '.hg', 'added-to-git-notes')
+                # 'delta-git-notes' is the set of new mappings found on this iteration, that
+                # now need to be added to the git notes of the project (the diff between the
+                # previous two files described)
+                delta_git_notes = os.path.join(dest, '.hg', 'delta-git-notes')
+                git_dir = os.path.join(dest, '.git')
+                self.rmtree(delta_git_notes)
+                git_notes_adding_successful = True
+                self.opened(file_path, verbose, open_mode, error_level)
+                self.write_to_file(file_path, contents, verbose, open_mode, create_parent_dir, error_level)
+                with self.opened(delta_git_notes, open_mode='w') as (delta_out, err):
+                    if err:
+                        self.warn("Could not write list of unprocessed git note mappings to file %s - not critical" % delta_git_notes)
+                    for sha_lookup in self.pull_out_new_sha_lookups(added_to_git_notes, complete_mapfile):
                         print >>delta_out, sha_lookup,
-                    else:
-                        self.error("Was not able to append required git note for git commit %s ('%s')" % (git_sha, git_note_text))
-                        git_notes_adding_successful = False
-            if git_notes_adding_successful:
-                shutil.copyfile(complete_mapfile, added_to_git_notes)
+                        (git_sha, hg_sha) = sha_lookup.split()
+                        # only add git note if not already there - note
+                        # devs may have added their own notes, so don't
+                        # replace any existing notes, just add to them
+                        output = self.get_output_from_command(
+                            git + ['notes', 'show', git_sha],
+                            cwd=git_dir,
+                            ignore_errors=True
+                        )
+                        git_note_text='Upstream source: %s/rev/%s' % (repo, hg_sha)
+                        git_notes_add_return_code = 1
+                        if not output or output.find(git_note_text) < 0:
+                            git_notes_add_return_code = self.run_command(
+                                git + ['notes', 'append', '-m', git_note_text, git_sha],
+                                cwd=git_dir
+                            )
+                        # if note was successfully added, or it was already there, we can
+                        # mark it as added, by putting it in the delta file...
+                        if git_notes_add_return_code == 0 or output.find(git_note_text) >= 0:
+                            print >>delta_out, sha_lookup,
+                        else:
+                            self.error("Was not able to append required git note for git commit %s ('%s')" % (git_sha, git_note_text))
+                            git_notes_adding_successful = False
+                if git_notes_adding_successful:
+                    self.copyfile(complete_mapfile, added_to_git_notes)
+            else:
+                self.info("Not creating git notes for repo %s (generate_git_notes not set to True)" % repo)
 
     def publish_to_mapper(self):
         """ This method will attempt to create git notes for any new git<->hg mappings
@@ -925,8 +930,7 @@ intree=1
             # mapper on this iteration, i.e. the diff between the previous two files
             # described
             delta_for_mapper = os.path.join(dest, '.hg', 'delta-for-mapper')
-            if os.path.exists(delta_for_mapper):
-                os.remove(delta_for_mapper)
+            self.rmtree(delta_for_mapper)
             # we only replace published_to_mapper if we successfully updated
             # pushed to mapper
             mapper_config = repo_config.get('mapper', {})
@@ -936,10 +940,10 @@ intree=1
                     sys.path.append(site_packages_path)
                 try:
                     import requests
-                except BaseException as e:
+                except ImportError as e:
                     self.error("Can't import requests: %s\nDid you create-virtualenv?" % str(e))
-                mapper_url = mapper_config.get('url')
-                mapper_project = mapper_config.get('project')
+                mapper_url = mapper_config['url']
+                mapper_project = mapper_config['project']
                 insert_url = "%s/%s/insert/ignoredups" % (mapper_url, mapper_project)
                 headers = {
                     'Content-Type': 'text/plain',
@@ -947,8 +951,7 @@ intree=1
                 }
                 all_new_mappings = []
                 all_new_mappings.extend(self.pull_out_new_sha_lookups(published_to_mapper, complete_mapfile))
-                with open(delta_for_mapper, "w") as delta_out:
-                    delta_out.write("".join(all_new_mappings))
+                self.write_to_file(delta_for_mapper, "".join(all_new_mappings))
                 # due to timeouts on load balancer, we only push 200 lines at a time
                 # this means that we should get http response back within 30 seconds
                 # including the time it takes to insert the mappings in the database
@@ -967,9 +970,9 @@ intree=1
                     # if we get this far, we know we could successfully post to mapper, so now
                     # we can copy the mapfile over "previously generated" version
                     # so that we don't push to mapper for these commits again
-                    shutil.copyfile(complete_mapfile, published_to_mapper)
+                    self.copyfile(complete_mapfile, published_to_mapper)
             else:
-                shutil.copyfile(complete_mapfile, published_to_mapper)
+                self.copyfile(complete_mapfile, published_to_mapper)
 
     def combine_mapfiles(self):
         """ This method is for any job (l10n, project-branches) that needs to combine

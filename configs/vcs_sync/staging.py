@@ -49,6 +49,7 @@ for repo in build_repos:
                 "^.*$"
             ]
         },
+        "generate_git_notes": True # False by default
     })
     remote_targets["build-%s-github" % repo] = {
         "repo": "git@github.com:petermoore/build-%s.git" % repo,
@@ -97,5 +98,18 @@ config = {
     "hg_options": (
         "--config",
         "web.cacerts=/etc/pki/tls/certs/ca-bundle.crt"
-    )
+    ),
+
+    "default_actions": [
+        'list-repos',
+        'create-virtualenv',
+        'update-stage-mirror',
+        'update-work-mirror',
+        'create-git-notes',
+        'publish-to-mapper',
+        'push',
+        'combine-mapfiles',
+        'upload',
+        'notify',
+    ],
 }
