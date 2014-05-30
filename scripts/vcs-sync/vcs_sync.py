@@ -880,8 +880,6 @@ intree=1
                 git_dir = os.path.join(dest, '.git')
                 self.rmtree(delta_git_notes)
                 git_notes_adding_successful = True
-                self.opened(file_path, verbose, open_mode, error_level)
-                self.write_to_file(file_path, contents, verbose, open_mode, create_parent_dir, error_level)
                 with self.opened(delta_git_notes, open_mode='w') as (delta_out, err):
                     if err:
                         self.warn("Could not write list of unprocessed git note mappings to file %s - not critical" % delta_git_notes)
