@@ -220,9 +220,11 @@ class B2GBuild(LocalesMixin, MockMixin, PurgeMixin, BaseScript, VCSMixin,
         if self.config.get("update_type", "ota") == "fota":
             self.make_updates_cmd = ['./build.sh', 'gecko-update-fota']
             self.extra_update_attrs = 'isOsUpdate="true"'
+            self.isOSUpdate = True
         else:
             self.make_updates_cmd = ['./build.sh', 'gecko-update-full']
             self.extra_update_attrs = None
+            self.isOSUpdate = False
         self.package_urls = {}
 
     def _pre_config_lock(self, rw_config):
@@ -1476,7 +1478,10 @@ class B2GBuild(LocalesMixin, MockMixin, PurgeMixin, BaseScript, VCSMixin,
         dated_application_ini = "application_%s.ini" % suffix
         dated_sources_xml = "b2g_update_source_%s.xml" % suffix
         mar_url = self.config['update']['base_url'] + dated_mar
-        update_channel = self.query_update_channel()
+        if self.query_is_nightly() and 'nightly_update_channel' in self.config:
+            update_channel = self.config['nightly_update_channel']
+        else:
+            update_channel = self.config['update_channel']
         publish_channel = self.config.get('publish_channel', update_channel)
         mar_url = mar_url.format(
             update_channel=update_channel,
@@ -1523,7 +1528,10 @@ class B2GBuild(LocalesMixin, MockMixin, PurgeMixin, BaseScript, VCSMixin,
         upload_dir = dirs['abs_upload_dir'] + '-updates'
         # upload dated files first to be sure that update.xml doesn't
         # point to not existing files
-        update_channel = self.query_update_channel()
+        if self.query_is_nightly() and 'nightly_update_channel' in self.config:
+            update_channel = self.config['nightly_update_channel']
+        else:
+            update_channel = self.config['update_channel']
         publish_channel = self.config.get('publish_channel', update_channel)
         if publish_channel is None:
             publish_channel = update_channel
@@ -1604,6 +1612,7 @@ class B2GBuild(LocalesMixin, MockMixin, PurgeMixin, BaseScript, VCSMixin,
         self.set_buildbot_property("completeMarSize", self.query_filesize(marfile))
         self.set_buildbot_property("completeMarHash", self.query_sha512sum(marfile))
         self.set_buildbot_property("completeMarUrl", mar_url)
+        self.set_buildbot_property("isOSUpdate", self.isOSUpdate)
 
         self.submit_balrog_updates()
 
