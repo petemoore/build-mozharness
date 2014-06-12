@@ -753,12 +753,14 @@ intree=1
             if err:
                 self.info('Map file %s not found - probably first time this has run.' % old_file)
                 old_set = frozenset()
-            old_set = frozenset(old)
+            else:
+                old_set = frozenset(old)
         with self.opened(new_file, 'rt') as (new, err):
             if err:
                 self.error('Could not read contents of map file %s:\n%s' % (new_file, err.message))
                 new_set = frozenset()
-            new_set = frozenset(new)
+            else:
+                new_set = frozenset(new)
         for line in sorted(new_set.difference(old_set), key=lambda line: line.partition(' ')[2]):
             yield line
 
@@ -882,32 +884,34 @@ intree=1
                 git_notes_adding_successful = True
                 with self.opened(delta_git_notes, open_mode='w') as (delta_out, err):
                     if err:
+                        git_notes_adding_successful = False
                         self.warn("Could not write list of unprocessed git note mappings to file %s - not critical" % delta_git_notes)
-                    for sha_lookup in self.pull_out_new_sha_lookups(added_to_git_notes, complete_mapfile):
-                        print >>delta_out, sha_lookup,
-                        (git_sha, hg_sha) = sha_lookup.split()
-                        # only add git note if not already there - note
-                        # devs may have added their own notes, so don't
-                        # replace any existing notes, just add to them
-                        output = self.get_output_from_command(
-                            git + ['notes', 'show', git_sha],
-                            cwd=git_dir,
-                            ignore_errors=True
-                        )
-                        git_note_text='Upstream source: %s/rev/%s' % (repo, hg_sha)
-                        git_notes_add_return_code = 1
-                        if not output or output.find(git_note_text) < 0:
-                            git_notes_add_return_code = self.run_command(
-                                git + ['notes', 'append', '-m', git_note_text, git_sha],
-                                cwd=git_dir
-                            )
-                        # if note was successfully added, or it was already there, we can
-                        # mark it as added, by putting it in the delta file...
-                        if git_notes_add_return_code == 0 or output.find(git_note_text) >= 0:
+                    else:
+                        for sha_lookup in self.pull_out_new_sha_lookups(added_to_git_notes, complete_mapfile):
                             print >>delta_out, sha_lookup,
-                        else:
-                            self.error("Was not able to append required git note for git commit %s ('%s')" % (git_sha, git_note_text))
-                            git_notes_adding_successful = False
+                            (git_sha, hg_sha) = sha_lookup.split()
+                            # only add git note if not already there - note
+                            # devs may have added their own notes, so don't
+                            # replace any existing notes, just add to them
+                            output = self.get_output_from_command(
+                                git + ['notes', 'show', git_sha],
+                                cwd=git_dir,
+                                ignore_errors=True
+                            )
+                            git_note_text='Upstream source: %s/rev/%s' % (repo, hg_sha)
+                            git_notes_add_return_code = 1
+                            if not output or output.find(git_note_text) < 0:
+                                git_notes_add_return_code = self.run_command(
+                                    git + ['notes', 'append', '-m', git_note_text, git_sha],
+                                    cwd=git_dir
+                                )
+                            # if note was successfully added, or it was already there, we can
+                            # mark it as added, by putting it in the delta file...
+                            if git_notes_add_return_code == 0 or output.find(git_note_text) >= 0:
+                                print >>delta_out, sha_lookup,
+                            else:
+                                self.error("Was not able to append required git note for git commit %s ('%s')" % (git_sha, git_note_text))
+                                git_notes_adding_successful = False
                 if git_notes_adding_successful:
                     self.copyfile(complete_mapfile, added_to_git_notes)
             else:
