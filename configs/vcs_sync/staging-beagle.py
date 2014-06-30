@@ -31,11 +31,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -65,11 +61,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
             "tag_config": {
                 "tag_regexes": [
                     "^B2G_",
@@ -101,11 +93,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
             "tag_config": {
                 "tag_regexes": [
                     "^B2G_",
@@ -137,11 +125,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
             "tag_config": {
                 "tag_regexes": [
                     "^B2G_",
@@ -173,11 +157,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
             "tag_config": {
                 "tag_regexes": [
                     "^B2G_",
@@ -209,11 +189,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
             "tag_config": {
                 "tag_regexes": [
                     "^B2G_",
@@ -245,11 +221,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
             "tag_config": {
                 "tag_regexes": [
                     "^B2G_",
@@ -281,11 +253,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -312,11 +280,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -343,11 +307,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -374,11 +334,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -405,11 +361,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -440,11 +392,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -475,11 +423,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -506,11 +450,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -540,11 +480,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -567,11 +503,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -594,11 +526,7 @@ config = {
             "vcs": "git",
             "test_push": True,
         }, {
-            "target_dest": "gitmo-beagle",
-        }, {
             "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
         }],
         "vcs": "hg",
         "mapper": {
@@ -614,16 +542,6 @@ config = {
         "tag_config": {},
     }],
     "remote_targets": {
-        "github-beagle": {
-            "repo": "git@github.com:mozilla/gecko-dev.git",
-            "ssh_key": "~/.ssh/releng-github-id_rsa",
-            "vcs": "git",
-        },
-        "gitmo-beagle": {
-            "repo": "gitolite3@git.mozilla.org:integration/gecko-dev.git",
-            "ssh_key": "~/.ssh/vcs-sync_rsa",
-            "vcs": "git",
-        },
         "gitmo-staging": {
             "repo": "git@github.com:petermoore/gecko-dev.git",
             "ssh_key": "~/.ssh/github_mozilla_rsa",
