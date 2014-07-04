@@ -26,7 +26,7 @@ for repo in ('mozilla-release', 'mozilla-beta', 'mozilla-aurora', 'mozilla-centr
             ],
         },
         'mapper': {
-            "url": "https://api.pub.build.mozilla.org/mapper",
+            "url": "https://api-pub-build.allizom.org/mapper",
             "project": "gitmo-gecko-l10n",
         },
         "generate_git_notes": True, # False by default
@@ -62,7 +62,7 @@ for branch_name in ('v1_2', 'v1_3', 'v1_4', 'v2_0', 'master'):
             '^B2G_',
         ]},
         'mapper': {
-            "url": "https://api.pub.build.mozilla.org/mapper",
+            "url": "https://api-pub-build.allizom.org/mapper",
             "project": "gitmo-gaia-l10n",
         },
         "generate_git_notes": True, # False by default
@@ -73,9 +73,8 @@ GAIA_CONFIG['master']['hg_url'] = 'https://hg.mozilla.org/gaia-l10n/%(locale)s'
 # GAIA_CONFIG['v1-train']['hg_url'] = 'https://hg.mozilla.org/releases/gaia-l10n/v1_1/%(locale)s'
 # GAIA_CONFIG['v1-train']['git_branch_name'] = 'v1.1'
 GAIA_CONFIG['v1_3']['locales_file_url'] = 'https://raw.github.com/mozilla-b2g/gaia/v1.3/locales/languages_dev.json'
-
-# MERGE DAY remove the line below on 2014-07-21 (so it picks up default value from for-loop above)
 GAIA_CONFIG['v2_0']['hg_url'] = 'https://hg.mozilla.org/gaia-l10n/%(locale)s'
+
 
 config = {
     "log_name": "l10n",
@@ -93,13 +92,13 @@ config = {
 
     "remote_targets": {
         "gitmo-gecko-l10n-%(locale)s": {
-            "repo": 'gitolite3@git.mozilla.org:releases/l10n/%(locale)s/gecko.git',
-            "ssh_key": "~/.ssh/vcs-sync_rsa",
+            "repo": 'git@github.com:petermoore/l10n-%(locale)s-gecko.git',
+            "ssh_key": "~/.ssh/github_mozilla_rsa",
             "vcs": "git",
         },
         "gitmo-gaia-l10n-%(locale)s": {
-            "repo": 'gitolite3@git.mozilla.org:releases/l10n/%(locale)s/gaia.git',
-            "ssh_key": "~/.ssh/vcs-sync_rsa",
+            "repo": 'git@github.com:petermoore/l10n-%(locale)s-gaia.git',
+            "ssh_key": "~/.ssh/github_mozilla_rsa",
             "vcs": "git",
         },
     },
@@ -121,16 +120,9 @@ config = {
     ],
     "pip_index": False,
 
-    "upload_config": [{
-        "ssh_key": "~/.ssh/vcs-sync_rsa",
-        "ssh_user": "asasaki",
-        "remote_host": "people.mozilla.org",
-        "remote_path": "/home/asasaki/public_html/vcs2vcs/l10n",
-    }],
-
     "default_notify_from": "vcs2vcs@%s" % hostname,
     "notify_config": [{
-        "to": "release+vcs2vcs@mozilla.com",
+        "to": "pmoore@mozilla.com",
         "failure_only": False,
         "skip_empty_messages": True,
     }],
@@ -142,7 +134,7 @@ config = {
     # any hg command line options
     "hg_options": (
         "--config",
-        "web.cacerts=/etc/pki/tls/certs/ca-bundle.crt"
+        "web.cacerts=/Users/pmoore/ca-bundle.crt"
     ),
 
     "default_actions": [

@@ -165,14 +165,55 @@ intree=1
 """
             self.write_to_file(hgrc, hgrc_update, open_mode='a')
 
+    def _process_locale(self, locale, type, config, l10n_remote_targets, name, l10n_repos):
+        """ This contains the common processing that we do on both gecko_config
+            and gaia_config for a given locale.
+            """
+        replace_dict = {'locale': locale}
+        new_targets = deepcopy(config.get('targets', {}))
+        for target in new_targets:
+            dest = target['target_dest']
+            if dest.find('%(locale)s') >= 0:
+                new_dest = dest % replace_dict
+                target['target_dest'] = new_dest
+                remote_target = l10n_remote_targets.get(new_dest)
+                if remote_target is None:  # generate target if not seen before
+                    possible_remote_target = l10n_remote_targets.get(dest)
+                    if possible_remote_target is not None:  # might be local target
+                        remote_target = deepcopy(possible_remote_target)
+                        remote_repo = remote_target.get('repo')
+                        if remote_repo.find('%(locale)s') >= 0:
+                            remote_target['repo'] = remote_repo % replace_dict
+                        l10n_remote_targets[new_dest] = remote_target
+        long_name = '%s_%s_%s' % (type, name, locale)
+        repo_dict = {
+            'repo': config['hg_url'] % replace_dict,
+            'revision': 'default',
+            'repo_name': long_name,
+            'conversion_dir': long_name,
+            'mapfile_name': '%s-mapfile' % long_name,
+            'targets': new_targets,
+            'vcs': 'hg',
+            'branch_config': {
+                'branches': {
+                    'default': config['git_branch_name'],
+                },
+            },
+            'tag_config': config.get('tag_config', {}),
+            'mapper': config.get('mapper', {}),
+            'generate_git_notes': config.get('generate_git_notes', {}),
+        }
+        l10n_repos.append(repo_dict)
+
     def _query_l10n_repos(self):
         """ Since I didn't want to have to build a huge static list of l10n
             repos, and since it would be nicest to read the list of locales
             from their SSoT files.
             """
         l10n_repos = []
-        gecko_dict = deepcopy(self.config['l10n_config'].get('gecko_config', {}))
+        l10n_remote_targets = deepcopy(self.config['remote_targets'])
         dirs = self.query_abs_dirs()
+        gecko_dict = deepcopy(self.config['l10n_config'].get('gecko_config', {}))
         for name, gecko_config in gecko_dict.items():
             file_name = self.download_file(gecko_config['locales_file_url'],
                                            parent_dir=dirs['abs_work_dir'])
@@ -181,38 +222,9 @@ intree=1
                 continue
             contents = self.read_from_file(file_name)
             for locale in contents.splitlines():
-                replace_dict = {'locale': locale}
-                long_name = 'gecko_%s_%s' % (name, locale)
-                repo_dict = {
-                    'repo': gecko_config['hg_url'] % replace_dict,
-                    'revision': 'default',
-                    'repo_name': long_name,
-                    'conversion_dir': long_name,
-                    'mapfile_name': '%s-mapfile' % long_name,
-                    'targets': [{
-                        'target_dest': 'releases-l10n-%s-gecko/.git' % locale,
-                        'vcs': 'git',
-                        'test_push': True,
-                    }],
-                    'vcs': 'hg',
-                    'branch_config': {
-                        'branches': {
-                            'default': gecko_config['git_branch_name'],
-                        },
-                    },
-                    'tag_config': gecko_config.get('tag_config', {}),
-                }
-                for remote_target in gecko_config.get('targets', []):
-                    if not remote_target.get('target_dest') or remote_target['target_dest'] not in self.config['remote_targets']:
-                        self.fatal("Can't figure out remote target for %s!" % long_name)
-#                    target_config = deepcopy(self.config['remote_targets'][remote_target['target_dest']])
-#                    target_config['repo'] = target_config['repo'] % replace_dict
-#                    repo_dict['targets'].append(target_config)
-                l10n_repos.append(repo_dict)
+                self._process_locale(locale, 'gecko', gecko_config, l10n_remote_targets, name, l10n_repos)
 
         gaia_dict = deepcopy(self.config['l10n_config'].get('gaia_config', {}))
-        # TODO other than locales and long_name I think these are the same; I
-        # need to un-dup code.
         for name, gaia_config in gaia_dict.items():
             contents = self.retry(
                 self.load_json_from_url,
@@ -222,36 +234,12 @@ intree=1
                 self.error("Can't download locales from %s; skipping!" % gaia_config['locales_file_url'])
                 continue
             for locale in dict(contents).keys():
-                replace_dict = {'locale': locale}
-                long_name = 'gaia_%s_%s' % (name, locale)
-                repo_dict = {
-                    'repo': gaia_config['hg_url'] % replace_dict,
-                    'revision': 'default',
-                    'repo_name': long_name,
-                    'conversion_dir': long_name,
-                    'mapfile_name': '%s-mapfile' % long_name,
-                    'targets': [{
-                        'target_dest': 'releases-l10n-%s-gaia/.git' % locale,
-                        'vcs': 'git',
-                        'test_push': True,
-                    }],
-                    'vcs': 'hg',
-                    'branch_config': {
-                        'branches': {
-                            'default': gaia_config['git_branch_name'],
-                        },
-                    },
-                    'tag_config': gaia_config.get('tag_config', {}),
-                }
-                for remote_target in gaia_config.get('targets', []):
-                    if not remote_target.get('target_dest') or remote_target['target_dest'] not in self.config['remote_targets']:
-                        self.fatal("Can't figure out remote target for %s!" % long_name)
-#                    target_config = deepcopy(self.config['remote_targets'][remote_target['target_dest']])
-#                    target_config['repo'] = target_config['repo'] % replace_dict
-#                    repo_dict['targets'].append(target_config)
-                l10n_repos.append(repo_dict)
+                self._process_locale(locale, 'gaia', gaia_config, l10n_remote_targets, name, l10n_repos)
         self.info("Built l10n_repos...")
         self.info(pprint.pformat(l10n_repos, indent=4))
+        self.info("Remote targets...")
+        self.info(pprint.pformat(l10n_remote_targets, indent=4))
+        self.remote_targets = l10n_remote_targets
         return l10n_repos
 
     def _query_project_repos(self):
@@ -343,7 +331,11 @@ intree=1
                     # Don't leave a failed clone behind
                     self.rmtree(source_dest)
                     self._update_repo_previous_status(repo_name, successful_flag=False, write_update=True)
-                    self.fatal("Can't clone %s!" % repo_config['repo'])
+                    self.add_failure(
+                        repo_name,
+                        message="Can't clone %s!" % repo_config['repo'],
+                        level=ERROR,
+                    )
         elif self.config['check_incoming'] and repo_config.get("check_incoming", True):
             previous_status = self._query_repo_previous_status(repo_name)
             if previous_status is None:
@@ -396,7 +388,11 @@ intree=1
                     repo_config, retry=False, clobber=True)
             else:
                 self._update_repo_previous_status(repo_name, successful_flag=False, write_update=True)
-                self.fatal("Can't pull %s!" % repo_config['repo'])
+                self.add_failure(
+                    repo_name,
+                    message="Can't pull %s!" % repo_config['repo'],
+                    level=ERROR,
+                )
         # commenting out hg verify since it takes ~5min per repo; hopefully
         # exit codes will save us
 #        if self.run_command(hg + ["verify"], cwd=source_dest):
@@ -453,7 +449,9 @@ intree=1
                 target_vcs = target_config.get("vcs")
             else:
                 target_name = target_config['target_dest']
-                remote_config = self.config.get('remote_targets', {}).get(target_name, target_config)
+                if not self.remote_targets:
+                    self.remote_targets = self.config.get('remote_targets', {})
+                remote_config = self.remote_targets.get(target_name, target_config)
                 force_push = remote_config.get("force_push", target_config.get("force_push"))
                 target_vcs = remote_config.get("vcs", target_config.get("vcs"))
             if target_vcs == "git":
@@ -509,18 +507,19 @@ intree=1
                         hg + ['tags'],
                         cwd=source_dir,
                     )
-                    for tag_line in tag_list.splitlines():
-                        if not tag_line:
-                            continue
-                        tag_parts = tag_line.split()
-                        if not tag_parts:
-                            self.warning("Bogus tag_line? %s" % str(tag_line))
-                            continue
-                        tag_name = tag_parts[0]
-                        for regex in regex_list:
-                            if tag_name != 'tip' and regex.search(tag_name) is not None:
-                                refs_list += ['+refs/tags/%s:refs/tags/%s' % (tag_name, tag_name)]
+                    if tag_list is not None:
+                        for tag_line in tag_list.splitlines():
+                            if not tag_line:
                                 continue
+                            tag_parts = tag_line.split()
+                            if not tag_parts:
+                                self.warning("Bogus tag_line? %s" % str(tag_line))
+                                continue
+                            tag_name = tag_parts[0]
+                            for regex in regex_list:
+                                if tag_name != 'tip' and regex.search(tag_name) is not None:
+                                    refs_list += ['+refs/tags/%s:refs/tags/%s' % (tag_name, tag_name)]
+                                    continue
                 error_msg = "%s: Can't push %s to %s!\n" % (repo_config['repo_name'], conversion_dir, target_name)
                 if self._do_push_repo(
                     base_command,
@@ -790,12 +789,20 @@ intree=1
                 self.mkdir_p(os.path.dirname(dest))
                 self.run_command(hg + ['clone', '--noupdate', source, dest],
                                  error_list=HgErrorList,
-                                 halt_on_failure=True)
-                self.write_hggit_hgrc(dest)
-                self.init_git_repo('%s/.git' % dest, additional_args=['--bare'])
-                self.run_command(
+                                 halt_on_failure=False)
+                if os.path.exists(dest):
+                    self.write_hggit_hgrc(dest)
+                    self.init_git_repo('%s/.git' % dest, additional_args=['--bare'])
+                    self.run_command(
                     git + ['--git-dir', '%s/.git' % dest, 'config', 'gc.auto', '0'],
-                )
+                    )
+                else:
+                    self.add_failure(
+                        repo_name,
+                        message="Failed to clone %s!" % source,
+                        level=ERROR,
+                    )
+                    continue
             elif self.query_failure(repo_name):
                 self.info("Skipping %s." % repo_config['repo_name'])
                 continue
