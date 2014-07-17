@@ -5,6 +5,12 @@ import os
 import socket
 hostname = socket.gethostname()
 
+all_repo_names = ('mozilla-central', 'mozilla-b2g18', 'mozilla-b2g26_v1_2', 'mozilla-b2g26_v1_2f',
+                  'mozilla-b2g28_v1_3', 'mozilla-b2g28_v1_3t', 'mozilla-b2g30_v1_4',
+                  'mozilla-b2g18_v1_1_0_hd', 'mozilla-b2g18_v1_0_1', 'mozilla-b2g18_v1_0_0',
+                  'mozilla-aurora', 'mozilla-beta', 'mozilla-release', 'mozilla-esr17',
+                  'mozilla-esr24', 'mozilla-inbound', 'b2g-inbound', 'fx-team')
+
 CVS_MANIFEST = """[{
 "size": 1301484692,
 "digest": "89df462d8d20f54402caaaa4e3c10aa54902a1d7196cdf86b7790b76e62d302ade3102dc3f7da4145dd832e6938b0472370ce6a321e0b3bcf0ad050937bd0e9a",
@@ -12,6 +18,48 @@ CVS_MANIFEST = """[{
 "filename": "mozilla-cvs-history.tar.bz2"
 }]
 """
+
+repos = {}
+repo_list = []
+for repo in all_repo_names:
+    repos[repo] = {
+        "repo": "https://hg.mozilla.org/releases/%s" % repo,
+        "revision": "default",
+        "repo_name": repo,
+        "targets": [{
+            "target_dest": "beagle/.git",
+            "vcs": "git",
+            "test_push": True,
+        }, {
+            "target_dest": "gitmo-beagle",
+        }, {
+            "target_dest": "gitmo-staging",
+        }, {
+            "target_dest": "github-beagle"
+        }],
+        "vcs": "hg",
+        "branch_config": {
+            "branches": {
+                "default": repo.replace('mozilla-', '', 1),
+            },
+        },
+        "tag_config": {
+            'tag_regexes': ['^B2G_']
+        }
+    }
+    repo_list.append(repos[repo])
+
+for repo in ('mozilla-inbound', 'b2g-inbound', 'fx-team', 'mozilla-central'):
+    repos[repo].pop('tag_config')
+    repos[repo]['repo'] = 'https://hg.mozilla.org/integration/%s' % repo
+
+for repo in ('mozilla-beta', 'mozilla-release'):
+    repos[repo]['branch_config']['branch_regexes'] = ['^GECKO[0-9_]*RELBRANCH$', '^MOBILE[0-9_]*RELBRANCH$']
+    repos[repo]['tag_config'] = {'tag_regexes': ['^(B2G|RELEASE_BASE)_']}
+
+repos['mozilla-central']['repo'] = 'https://hg.mozilla.org/mozilla-central'
+repos['mozilla-central']['branch_config']['branches']['default'] = 'master'
+repos['mozilla-esr24']['branch_config']['branch_regexes'] = ['^GECKO[0-9]+esr_[0-9]+_RELBRANCH$']
 
 config = {
     "log_name": "beagle",
@@ -22,28 +70,7 @@ config = {
     }],
     "job_name": "beagle",
     "conversion_dir": "beagle",
-    "initial_repo": {
-        "repo": "https://hg.mozilla.org/mozilla-central",
-        "revision": "default",
-        "repo_name": "mozilla-central",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "master",
-            },
-        },
-    },
+    "initial_repo": repo_list[0],
     "backup_dir": "/mnt/netapp/github_sync/aki/%s" % hostname,
     "cvs_manifest": CVS_MANIFEST,
     "tooltool_servers": ["http://runtime-binaries.pvt.build.mozilla.org/tooltool/"],
@@ -51,478 +78,8 @@ config = {
     "env": {
         "PATH": "%(PATH)s:/usr/libexec/git-core",
     },
-    "conversion_repos": [{
-        "repo": "https://hg.mozilla.org/releases/mozilla-b2g18",
-        "revision": "default",
-        "repo_name": "mozilla-b2g18",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-            "tag_config": {
-                "tag_regexes": [
-                    "^B2G_",
-                ],
-            },
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g18",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-b2g26_v1_2",
-        "revision": "default",
-        "repo_name": "mozilla-b2g26_v1_2",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-            "tag_config": {
-                "tag_regexes": [
-                    "^B2G_",
-                ],
-            },
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g26_v1_2",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-b2g26_v1_2f",
-        "revision": "default",
-        "repo_name": "mozilla-b2g26_v1_2f",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-            "tag_config": {
-                "tag_regexes": [
-                    "^B2G_",
-                ],
-            },
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g26_v1_2f",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-b2g28_v1_3",
-        "revision": "default",
-        "repo_name": "mozilla-b2g28_v1_3",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-            "tag_config": {
-                "tag_regexes": [
-                    "^B2G_",
-                ],
-            },
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g28_v1_3",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-b2g28_v1_3t",
-        "revision": "default",
-        "repo_name": "mozilla-b2g28_v1_3t",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-            "tag_config": {
-                "tag_regexes": [
-                    "^B2G_",
-                ],
-            },
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g28_v1_3t",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-b2g30_v1_4",
-        "revision": "default",
-        "repo_name": "mozilla-b2g30_v1_4",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-            "tag_config": {
-                "tag_regexes": [
-                    "^B2G_",
-                ],
-            },
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g30_v1_4",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-b2g18_v1_1_0_hd",
-        "revision": "default",
-        "repo_name": "mozilla-b2g18_v1_1_0_hd",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g18_v1_1_0_hd",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-b2g18_v1_0_1",
-        "revision": "default",
-        "repo_name": "mozilla-b2g18_v1_0_1",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g18_v1_0_1",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-b2g18_v1_0_0",
-        "revision": "default",
-        "repo_name": "mozilla-b2g18_v1_0_0",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g18_v1_0_0",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-aurora",
-        "revision": "default",
-        "repo_name": "mozilla-aurora",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "aurora",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-beta",
-        "revision": "default",
-        "repo_name": "mozilla-beta",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "beta",
-            },
-            "branch_regexes": [
-                "^GECKO[0-9_]*RELBRANCH$",
-                "^MOBILE[0-9_]*RELBRANCH$",
-            ],
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^(B2G|RELEASE_BASE)_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-release",
-        "revision": "default",
-        "repo_name": "mozilla-release",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "release",
-            },
-            "branch_regexes": [
-                "^GECKO[0-9_]*RELBRANCH$",
-                "^MOBILE[0-9_]*RELBRANCH$",
-            ],
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^(B2G|RELEASE_BASE)_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-esr17",
-        "revision": "default",
-        "repo_name": "mozilla-esr17",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "esr17",
-            },
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/releases/mozilla-esr24",
-        "revision": "default",
-        "repo_name": "mozilla-esr24",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "esr24",
-            },
-            "branch_regexes": [
-                "^GECKO[0-9]+esr_[0-9]+_RELBRANCH$",
-            ],
-        },
-        "tag_config": {
-            "tag_regexes": [
-                "^B2G_",
-            ],
-        },
-    }, {
-        "repo": "https://hg.mozilla.org/integration/mozilla-inbound",
-        "revision": "default",
-        "repo_name": "mozilla-inbound",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "inbound",
-            },
-        },
-        "tag_config": {},
-    }, {
-        "repo": "https://hg.mozilla.org/integration/b2g-inbound",
-        "revision": "default",
-        "repo_name": "b2g-inbound",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "b2g-inbound",
-            },
-        },
-        "tag_config": {},
-    }, {
-        "repo": "https://hg.mozilla.org/integration/fx-team",
-        "revision": "default",
-        "repo_name": "fx-team",
-        "targets": [{
-            "target_dest": "beagle/.git",
-            "vcs": "git",
-            "test_push": True,
-        }, {
-            "target_dest": "gitmo-beagle",
-        }, {
-            "target_dest": "gitmo-staging",
-        }, {
-            "target_dest": "github-beagle",
-        }],
-        "vcs": "hg",
-        "branch_config": {
-            "branches": {
-                "default": "fx-team",
-            },
-        },
-        "tag_config": {},
-    }],
+    "conversion_repos": repo_list[1:],
+
     "remote_targets": {
         "github-beagle": {
             "repo": "git@github.com:mozilla/gecko-dev.git",
