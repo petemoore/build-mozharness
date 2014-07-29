@@ -17,16 +17,10 @@ import pprint
 import re
 import sys
 import time
-
-try:
-    import simplejson as json
-    assert json
-except ImportError:
-    import json
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(sys.path[0])))
+import json
 
 import mozharness
+
 external_tools_path = os.path.join(
     os.path.abspath(os.path.dirname(os.path.dirname(mozharness.__file__))),
     'external_tools',
