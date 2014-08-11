@@ -212,7 +212,7 @@ class VirtualenvMixin(object):
             # To avoid timeouts with our pypi server, increase default timeout:
             # https://bugzilla.mozilla.org/show_bug.cgi?id=1007230#c802
             if '--timeout' not in command:
-                command += ['--timeout', '120']
+                command += ['--timeout', c.get('pip_timeout', 120)]
             for requirement in requirements:
                 command += ["-r", requirement]
             if c.get('find_links') and not c["pip_index"]:
