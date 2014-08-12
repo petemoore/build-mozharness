@@ -211,8 +211,7 @@ class VirtualenvMixin(object):
                 command += ["--download-cache", virtualenv_cache_dir]
             # To avoid timeouts with our pypi server, increase default timeout:
             # https://bugzilla.mozilla.org/show_bug.cgi?id=1007230#c802
-            if '--timeout' not in command:
-                command += ['--timeout', c.get('pip_timeout', 120)]
+            command += ['--timeout', str(c.get('pip_timeout', 120))]
             for requirement in requirements:
                 command += ["-r", requirement]
             if c.get('find_links') and not c["pip_index"]:
@@ -280,9 +279,9 @@ class VirtualenvMixin(object):
         if self.retry(self.run_command, args=[command,], attempts=attempts, kwargs=kwargs) != 0:
             if optional:
                 self.warning("Error running install of optional package, %s." %
-                             ' '.join(map(str, command)))
+                             ' '.join(command))
             else:
-                self.fatal("Error running install of package, %s!" % ' '.join(map(str, command)))
+                self.fatal("Error running install of package, %s!" % ' '.join(command))
 
     def create_virtualenv(self, modules=(), requirements=()):
         """
