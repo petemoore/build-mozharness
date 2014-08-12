@@ -264,22 +264,17 @@ class VirtualenvMixin(object):
 
         # Allow for errors while building modules, but require a
         # return status of 0.
-        kwargs={
-            'error_list': VirtualenvErrorList,
-            'success_codes': success_codes,
-            'cwd': cwd,
-        }
-        if optional:
-            attempts = 1
-        else:
-            # None will cause default value to be used
-            attempts = None
         if self.retry(
             self.run_command,
-            attempts=attempts,
+            # None will cause default value to be used
+            attempts=1 if optional else None
             good_statuses=(0,),
             args=[command,],
-            kwargs=kwargs
+            kwargs={
+                'error_list': VirtualenvErrorList,
+                'success_codes': success_codes,
+                'cwd': cwd,
+            }
         ) != 0:
             if optional:
                 self.warning("Error running install of optional package, %s." %
