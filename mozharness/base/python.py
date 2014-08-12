@@ -280,9 +280,9 @@ class VirtualenvMixin(object):
         if self.retry(self.run_command, args=[command,], attempts=attempts, kwargs=kwargs) != 0:
             if optional:
                 self.warning("Error running install of optional package, %s." %
-                             ' '.join(command))
+                             ' '.join(map(str, command)))
             else:
-                self.fatal("Error running install of package, %s!" % ' '.join(command))
+                self.fatal("Error running install of package, %s!" % ' '.join(map(str, command)))
 
     def create_virtualenv(self, modules=(), requirements=()):
         """
