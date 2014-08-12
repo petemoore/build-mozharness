@@ -268,14 +268,19 @@ class VirtualenvMixin(object):
             'error_list': VirtualenvErrorList,
             'success_codes': success_codes,
             'cwd': cwd,
-            'good_statuses': [0]
         }
         if optional:
             attempts = 1
         else:
             # None will cause default value to be used
             attempts = None
-        if self.retry(self.run_command, args=[command,], attempts=attempts, kwargs=kwargs) != 0:
+        if self.retry(
+            self.run_command,
+            attempts=attempts,
+            good_statuses=(0,),
+            args=[command,],
+            kwargs=kwargs
+        ) != 0:
             if optional:
                 self.warning("Error running install of optional package, %s." %
                              ' '.join(command))
