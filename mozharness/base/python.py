@@ -268,8 +268,7 @@ class VirtualenvMixin(object):
             'error_list': VirtualenvErrorList,
             'success_codes': success_codes,
             'cwd': cwd,
-            # Need to throw exception for retry mechanism to work
-            'throw_exception': True,
+            'good_statuses': [0]
         }
         if optional:
             attempts = 1
