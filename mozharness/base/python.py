@@ -267,7 +267,7 @@ class VirtualenvMixin(object):
         if self.retry(
             self.run_command,
             # None will cause default value to be used
-            attempts=1 if optional else None
+            attempts=1 if optional else None,
             good_statuses=(0,),
             args=[command,],
             kwargs={
