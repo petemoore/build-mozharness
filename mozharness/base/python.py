@@ -267,9 +267,9 @@ class VirtualenvMixin(object):
             # None will cause default value to be used
             attempts=1 if optional else None,
             good_statuses=(0,),
-            args=[command,],
             error_level=WARNING if optional else ERROR,
             error_message='Command: %s failed after %(attempts)d tries!' % quoted_command,
+            args=[command,],
             kwargs={
                 'error_list': VirtualenvErrorList,
                 'cwd': cwd,

@@ -638,7 +638,6 @@ class ScriptMixin(object):
         is killed.
 
         TODO: context_lines
-        TODO: error_level_override?
 
         output_parser lets you provide an instance of your own OutputParser
         subclass, or pass None to use OutputParser.
@@ -699,7 +698,7 @@ class ScriptMixin(object):
                 p.run(outputTimeout=output_timeout)
                 p.wait()
                 if p.timedOut:
-                    self.error('timed out after %s seconds of no output' % output_timeout)
+                    self.log('timed out after %s seconds of no output' % output_timeout, level=error_level)
                 returncode = int(p.proc.returncode)
             else:
                 p = subprocess.Popen(command, shell=shell, stdout=subprocess.PIPE,
@@ -733,11 +732,13 @@ class ScriptMixin(object):
         if halt_on_failure:
             _fail = False
             if returncode not in success_codes:
-                self.error("%s not in success codes: %s" % (returncode,
-                                                            success_codes))
+                self.log(
+                    "%s not in success codes: %s" % (returncode, success_codes),
+                    level=error_level
+                )
                 _fail = True
             if parser.num_errors:
-                self.error("failures found while parsing output")
+                self.log("failures found while parsing output", level=error_level)
                 _fail = True
             if _fail:
                 self.return_code = fatal_exit_code
