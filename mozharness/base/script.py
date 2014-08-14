@@ -698,7 +698,10 @@ class ScriptMixin(object):
                 p.run(outputTimeout=output_timeout)
                 p.wait()
                 if p.timedOut:
-                    self.log('timed out after %s seconds of no output' % output_timeout, level=error_level)
+                    self.log(
+                        'timed out after %s seconds of no output' % output_timeout,
+                        level=error_level
+                    )
                 returncode = int(p.proc.returncode)
             else:
                 p = subprocess.Popen(command, shell=shell, stdout=subprocess.PIPE,
