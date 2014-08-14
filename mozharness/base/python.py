@@ -8,6 +8,7 @@
 '''
 
 import os
+import subprocess
 import sys
 import traceback
 
@@ -252,16 +253,13 @@ class VirtualenvMixin(object):
                     self.fatal("editable installs not supported for install_method %s" % install_method)
             command += [module_url]
 
-        # Prevents a return code of 1 being marked as an ERROR in the log
-        # for optional packages.
-        success_codes = [0, 1] if optional else [0]
-
         # If we're only installing a single requirements file, use
         # the file's directory as cwd, so relative paths work correctly.
         cwd = dirs['abs_work_dir']
         if not module and len(requirements) == 1:
             cwd = os.path.dirname(requirements[0])
 
+        quoted_command = subprocess.list2cmdline(command)
         # Allow for errors while building modules, but require a
         # return status of 0.
         if self.retry(
@@ -269,19 +267,19 @@ class VirtualenvMixin(object):
             # None will cause default value to be used
             attempts=1 if optional else None,
             good_statuses=(0,),
-            error_level=WARNING if optional else ERROR,
             args=[command,],
+            error_level=WARNING if optional else ERROR,
+            error_message='Command: %s failed after %(attempts)d tries!' % quoted_command,
             kwargs={
                 'error_list': VirtualenvErrorList,
-                'success_codes': success_codes,
                 'cwd': cwd,
+                'error_level': WARNING if optional else ERROR,
             }
         ) != 0:
-            if optional:
-                self.warning("Error running install of optional package, %s." %
-                             ' '.join(command))
-            else:
-                self.fatal("Error running install of package, %s!" % ' '.join(command))
+            self.log(
+                "Error running install of package: %s" % quoted_command,
+                level=WARNING if optional else FATAL
+            )
 
     def create_virtualenv(self, modules=(), requirements=()):
         """
