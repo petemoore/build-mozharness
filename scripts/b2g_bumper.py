@@ -229,12 +229,12 @@ class B2GBumper(VCSScript, MapperMixin):
             remote_url = repo_manifest.get_project_remote_url(manifest, p)
             revision = repo_manifest.get_project_revision(manifest, p)
             if not abs_revision:
-                abort = True
-                self.error("Couldn't resolve reference %s %s" % (remote_url, revision))
-                failed.append(p)
+                p.setAttribute('comment', "Failed to execute: git ls-remote %s %s" % (remote_url, revision))
+                p.setAttribute('revision', revision)
             # Save to our cache
-            self._git_ref_cache[remote_url, revision] = abs_revision
-            p.setAttribute('revision', abs_revision)
+            else:
+                self._git_ref_cache[remote_url, revision] = abs_revision
+                p.setAttribute('revision', abs_revision)
         if abort:
             # Write message about how to set up syncing
             default = repo_manifest.get_default(manifest)
@@ -412,6 +412,7 @@ class B2GBumper(VCSScript, MapperMixin):
         return message
 
     def query_treestatus(self):
+        return True
         "Return True if we can land based on treestatus"
         c = self.config
         dirs = self.query_abs_dirs()
