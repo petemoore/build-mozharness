@@ -556,10 +556,12 @@ class B2GBumper(VCSScript, MapperMixin):
         max_retries = 5
         for _ in range(max_retries):
             changed = False
-            if not self.query_treestatus():
-                # Tree is closed; exit early to avoid a bunch of wasted time
-                self.info("breaking early since treestatus is closed")
-                break
+            # don't check tree status, if it has been explicitly disabled in command line options
+            if 'check-treestatus' not in self.config.get('volatile_config').get('no_actions'):
+                if not self.query_treestatus():
+                    # Tree is closed; exit early to avoid a bunch of wasted time
+                    self.info("breaking early since treestatus is closed")
+                    break
 
             self.checkout_gecko()
             if not self.config.get('skip_gaia_json') and self.bump_gaia():
