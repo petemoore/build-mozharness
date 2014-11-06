@@ -568,8 +568,10 @@ class B2GBumper(VCSScript, MapperMixin):
                 changed = True
             self.checkout_manifests()
             self.massage_manifests()
-            if self.commit_manifests():
-                changed = True
+            # don't commit, if it has been explicitly disabled in command line options
+            if 'commit-manifests' not in self.config.get('volatile_config').get('no_actions'):
+                if self.commit_manifests():
+                    changed = True
 
             if not changed:
                 # Nothing changed, we're all done
