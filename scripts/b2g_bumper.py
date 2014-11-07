@@ -451,6 +451,8 @@ class B2GBumper(VCSScript, MapperMixin):
             sys.exit(0)
 
     def checkout_gecko(self):
+        if 'checkout-gecko' in self.config.get('volatile_config').get('no_actions'):
+            return
         c = self.config
         dirs = self.query_abs_dirs()
         dest = dirs['gecko_local_dir']
