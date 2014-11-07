@@ -924,7 +924,7 @@ def skippable(f):
     """Decorator to allow actions to be skipped even if called
        explicitly from a different action.
 
-       Normally when invoking a mozharness with --no-<action>
+       Normally when invoking a mozharness script with --no-<action>
        command line option, it is removed from the list of actions
        that the mozharness calls.
 
