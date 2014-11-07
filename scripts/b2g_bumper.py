@@ -34,6 +34,7 @@ from mozharness.base.vcs.vcsbase import VCSScript
 from mozharness.mozilla import repo_manifest
 from mozharness.base.log import ERROR
 from mozharness.mozilla.mapper import MapperMixin
+from mozharness.base.script import skippable
 
 
 class B2GBumper(VCSScript, MapperMixin):
@@ -420,12 +421,9 @@ class B2GBumper(VCSScript, MapperMixin):
             return c['devices']
 
     # Actions {{{1
-
+    @skippable
     def check_treestatus(self):
         "Check if we can land based on treestatus - exit script if we can't"
-        # don't check tree status, if it has been explicitly disabled in command line options
-        if 'check-treestatus' in self.config.get('volatile_config',{}).get('no_actions',()):
-            return
         c = self.config
         dirs = self.query_abs_dirs()
         tree = c.get('treestatus_tree', os.path.basename(c['gecko_pull_url'].rstrip("/")))
@@ -444,9 +442,8 @@ class B2GBumper(VCSScript, MapperMixin):
 
         self.fatal("Breaking early since treestatus reports tree %s is closed" % tree)
 
+    @skippable
     def checkout_gecko(self):
-        if 'checkout-gecko' in self.config.get('volatile_config',{}).get('no_actions',()):
-            return
         c = self.config
         dirs = self.query_abs_dirs()
         dest = dirs['gecko_local_dir']
@@ -498,10 +495,8 @@ class B2GBumper(VCSScript, MapperMixin):
                 self.mkdir_p(os.path.dirname(manifest_path))
                 self.write_to_file(manifest_path, manifest_xml)
 
+    @skippable
     def commit_manifests(self):
-        # don't commit, if it has been explicitly disabled in command line options
-        if 'commit-manifests' in self.config.get('volatile_config',{}).get('no_actions',()):
-            return True
         dirs = self.query_abs_dirs()
         repo_path = dirs['gecko_local_dir']
         for device, device_config in self.query_devices().items():
@@ -549,10 +544,8 @@ class B2GBumper(VCSScript, MapperMixin):
         self.hg_commit(repo_path, message)
         return True
 
+    @skippable
     def push(self):
-        # don't push, if it has been explicitly disabled in command line options
-        if 'push' in self.config.get('volatile_config',{}).get('no_actions',()):
-            return True
         dirs = self.query_abs_dirs()
         repo_path = dirs['gecko_local_dir']
         return self.hg_push(repo_path)

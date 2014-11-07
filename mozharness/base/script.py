@@ -920,6 +920,26 @@ class ScriptMixin(object):
             # XXX implement
             pass
 
+def skippable(f):
+    """Decorator to allow actions to be skipped even if called
+       explicitly from a different action.
+
+       Normally when invoking a mozharness with --no-<action>
+       command line option, it is removed from the list of actions
+       that the mozharness calls.
+
+       However, if the action is called indirectly from another action,
+       it would still be executed. This decorator, allows you to
+       enforce that this action will never be called, neither directly,
+       nor indirectly as a part of another action."""
+    def wrap(*args, **kwargs):
+        action = f.__name__.replace('_', '-')
+        if args[0].config.get('volatile_config'):
+            if args[0].config.get('volatile_config').get('no_actions'):
+                if action in args[0].config.get('volatile_config').get('no_actions'):
+                    return
+        return f(*args, **kwargs)
+    return wrap
 
 def PreScriptRun(func):
     """Decorator for methods that will be called before script execution.
