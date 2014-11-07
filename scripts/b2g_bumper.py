@@ -273,9 +273,6 @@ class B2GBumper(VCSScript, MapperMixin):
         """
         Commits changes in repo_path, with specified user and commit message
         """
-        # don't commit, if it has been explicitly disabled in command line options
-        if 'commit-manifests' in self.config.get('volatile_config').get('no_actions'):
-            return False
         user = self.config['hg_user']
         hg = self.query_exe('hg', return_type='list')
         cmd = hg + ['commit', '-u', user, '-m', message]
@@ -505,6 +502,9 @@ class B2GBumper(VCSScript, MapperMixin):
                 self.write_to_file(manifest_path, manifest_xml)
 
     def commit_manifests(self):
+        # don't commit, if it has been explicitly disabled in command line options
+        if 'commit-manifests' in self.config.get('volatile_config').get('no_actions'):
+            return True
         dirs = self.query_abs_dirs()
         repo_path = dirs['gecko_local_dir']
         for device, device_config in self.query_devices().items():
