@@ -553,6 +553,9 @@ class B2GBumper(VCSScript, MapperMixin):
         return True
 
     def push(self):
+        # don't push, if it has been explicitly disabled in command line options
+        if 'push' in self.config.get('volatile_config').get('no_actions'):
+            return True
         dirs = self.query_abs_dirs()
         repo_path = dirs['gecko_local_dir']
         return self.hg_push(repo_path)
