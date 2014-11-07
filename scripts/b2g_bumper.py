@@ -411,28 +411,6 @@ class B2GBumper(VCSScript, MapperMixin):
         message = message.encode("utf-8")
         return message
 
-    def query_treestatus(self):
-        "Return True if we can land based on treestatus"
-        c = self.config
-        dirs = self.query_abs_dirs()
-        tree = c.get('treestatus_tree', os.path.basename(c['gecko_pull_url'].rstrip("/")))
-        treestatus_url = "%s/%s?format=json" % (c['treestatus_base_url'], tree)
-        treestatus_json = os.path.join(dirs['abs_work_dir'], 'treestatus.json')
-        if not os.path.exists(dirs['abs_work_dir']):
-            self.mkdir_p(dirs['abs_work_dir'])
-
-        if self.download_file(treestatus_url, file_name=treestatus_json) != treestatus_json:
-            # Failed to check tree status...assume we can land
-            self.info("failed to check tree status - assuming we can land")
-            return True
-
-        treestatus = self._read_json(treestatus_json)
-        if treestatus['status'] != 'closed':
-            self.info("treestatus is %s - assuming we can land" % repr(treestatus['status']))
-            return True
-
-        return False
-
     def query_devices(self):
         c = self.config
         override = c.get('device_override')
@@ -442,10 +420,29 @@ class B2GBumper(VCSScript, MapperMixin):
             return c['devices']
 
     # Actions {{{1
+
     def check_treestatus(self):
-        if not self.query_treestatus():
-            self.info("breaking early since treestatus is closed")
-            sys.exit(0)
+        "Check if we can land based on treestatus - exit script if we can't"
+        # don't check tree status, if it has been explicitly disabled in command line options
+        if 'check-treestatus' in self.config.get('volatile_config').get('no_actions'):
+            return
+        c = self.config
+        dirs = self.query_abs_dirs()
+        tree = c.get('treestatus_tree', os.path.basename(c['gecko_pull_url'].rstrip("/")))
+        treestatus_url = "%s/%s?format=json" % (c['treestatus_base_url'], tree)
+        treestatus_json = os.path.join(dirs['abs_work_dir'], 'treestatus.json')
+
+        if self.download_file(treestatus_url, parent_dir=dirs['abs_work_dir'], file_name='treestatus.json') != treestatus_json:
+            # Failed to check tree status...assume we can land
+            self.info("failed to check tree status for tree %s - assuming we can land" % tree)
+            return
+
+        treestatus = self._read_json(treestatus_json)
+        if treestatus['status'] != 'closed':
+            self.info("tree status for %s is %s - assuming we can land" % (tree, repr(treestatus['status'])))
+            return
+
+        self.fatal("Breaking early since treestatus reports tree %s is closed" % tree)
 
     def checkout_gecko(self):
         if 'checkout-gecko' in self.config.get('volatile_config').get('no_actions'):
@@ -564,12 +561,7 @@ class B2GBumper(VCSScript, MapperMixin):
         max_retries = 5
         for _ in range(max_retries):
             changed = False
-            # don't check tree status, if it has been explicitly disabled in command line options
-            if 'check-treestatus' not in self.config.get('volatile_config').get('no_actions'):
-                if not self.query_treestatus():
-                    # Tree is closed; exit early to avoid a bunch of wasted time
-                    self.info("breaking early since treestatus is closed")
-                    break
+            self.check_treestatus()
 
             self.checkout_gecko()
             if not self.config.get('skip_gaia_json') and self.bump_gaia():
