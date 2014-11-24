@@ -50,7 +50,7 @@ class MuletUnittest(B2GDesktopTest, GaiaMixin, TransferMixin):
                          cwd=gaia_dir,
                          halt_on_failure=True)
 
-    def preflight_run_tests(self):
+    def preflight_run(self):
         # This is if we don't run all actions since we set this inside
         # of download-and-extract()
         if self.config.get("binary_path"):

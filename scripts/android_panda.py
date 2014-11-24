@@ -260,7 +260,7 @@ class PandaTest(TestingMixin, MercurialScript, BlobUploadMixin, MozpoolMixin, Bu
                 if env.has_key('PYTHONPATH'):
                     del env['PYTHONPATH']
 
-                parser = self.get_test_output_parser(suite_category,
+                parser = self.get_output_parser(suite_category,
                                                      config=self.config,
                                                      error_list=error_list,
                                                      log_obj=self.log_obj)
