@@ -388,7 +388,7 @@ class DesktopUnittest(TestingMixin, MercurialScript, BlobUploadMixin, MozbaseMix
         self._download_unzip(self.query_jsshell_url(), dirs['abs_test_bin_dir'])
 
     # pull defined in VCSScript.
-    # preflight_run defined in TestingMixin.
+    # preflight_run_tests defined in TestingMixin.
 
     def run_tests(self):
         self._run_category_suites('mochitest')
@@ -476,7 +476,7 @@ class DesktopUnittest(TestingMixin, MercurialScript, BlobUploadMixin, MozbaseMix
                     'regex': re.compile(r'''PROCESS-CRASH.*application crashed'''),
                     'level': ERROR,
                 }]
-                parser = self.get_output_parser(suite_category,
+                parser = self.get_test_output_parser(suite_category,
                                                      config=self.config,
                                                      error_list=error_list,
                                                      log_obj=self.log_obj)

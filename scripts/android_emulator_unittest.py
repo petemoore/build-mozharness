@@ -419,8 +419,8 @@ class AndroidEmulatorTest(BlobUploadMixin, TestingMixin, TooltoolMixin, Emulator
     def _query_adb(self):
         return self.which('adb') or os.getenv('ADB_PATH')
 
-    def preflight_run(self):
-        super(AndroidEmulatorTest, self).preflight_run()
+    def preflight_run_tests(self):
+        super(AndroidEmulatorTest, self).preflight_run_tests()
 
         if not os.path.isfile(self.adb_path):
             self.fatal("The adb binary '%s' is not a valid file!" % self.adb_path)
@@ -668,7 +668,7 @@ class AndroidEmulatorTest(BlobUploadMixin, TestingMixin, TooltoolMixin, Emulator
                     output = self.read_from_file(p["tmp_file"].name, verbose=False)
                     # Let's parse the output (which also prints it)
                     # and determine what the results should be
-                    parser = self.get_output_parser(
+                    parser = self.get_test_output_parser(
                         self.test_suite_definitions[p["suite_name"]]["category"],
                         config=self.config,
                         log_obj=self.log_obj,

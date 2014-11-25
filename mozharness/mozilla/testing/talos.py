@@ -186,7 +186,7 @@ class Talos(TestingMixin, MercurialScript, BlobUploadMixin):
         self.sps_profile = self.config.get('sps_profile')
         self.sps_profile_interval = self.config.get('sps_profile_interval')
         if 'run-tests' in self.actions:
-            self.preflight_run()
+            self.preflight_run_tests()
 
     # We accept some configuration options from the try commit message in the format mozharness: <options>
     # Example try commit message:
@@ -582,7 +582,7 @@ class Talos(TestingMixin, MercurialScript, BlobUploadMixin):
             self.mkdir_p(os.path.dirname(manifest_target))
             self.copyfile(manifest_source, manifest_target)
 
-    def preflight_run(self):
+    def preflight_run_tests(self):
         if not self.query_tests():
             self.fatal("No tests specified; please specify --tests")
 

@@ -403,7 +403,7 @@ You can set this by:
         return ('structured_suites' in self.tree_config and
                 suite_category in self.tree_config['structured_suites'])
 
-    def get_output_parser(self, suite_category, strict=False,
+    def get_test_output_parser(self, suite_category, strict=False,
                                fallback_parser_class=DesktopUnittestOutputParser,
                                **kwargs):
         """Derive and return an appropriate output parser, either the structured
@@ -583,7 +583,7 @@ Did you run with --create-virtualenv? Is mozinstall in virtualenv_modules?""")
                              halt_on_failure=suite['halt_on_failure'],
                              fatal_exit_code=suite.get('fatal_exit_code', 3))
 
-    def preflight_run(self):
+    def preflight_run_tests(self):
         """preflight commands for all tests"""
         # If the in tree config hasn't been loaded by a previous step, load it here.
         if len(self.tree_config) == 0:
@@ -597,7 +597,7 @@ Did you run with --create-virtualenv? Is mozinstall in virtualenv_modules?""")
                          " These are often OS specific and disabling them may"
                          " result in spurious test results!")
 
-    def postflight_run(self):
+    def postflight_run_tests(self):
         """preflight commands for all tests"""
         c = self.config
         if c.get('run_cmd_checks_enabled'):

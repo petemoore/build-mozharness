@@ -191,8 +191,8 @@ class B2GDesktopTest(BlobUploadMixin, TestingMixin, TooltoolMixin, MercurialScri
                     cmd.append(option)
         return cmd
 
-    def preflight_run(self):
-        super(B2GDesktopTest, self).preflight_run()
+    def preflight_run_tests(self):
+        super(B2GDesktopTest, self).preflight_run_tests()
         suite = self.config['test_suite']
         # set default test manifest by suite if none specified
         if not self.test_manifest:
@@ -247,7 +247,7 @@ class B2GDesktopTest(BlobUploadMixin, TestingMixin, TooltoolMixin, MercurialScri
             self.mkdir_p(env['MOZ_UPLOAD_DIR'])
         env = self.query_env(partial_env=env)
 
-        parser = self.get_output_parser(suite_name,
+        parser = self.get_test_output_parser(suite_name,
                                              config=self.config,
                                              log_obj=self.log_obj,
                                              error_list=error_list)
