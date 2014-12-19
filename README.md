@@ -1,4 +1,4 @@
-# buildbotcustom
+# Mozharness
 This repository is a downstream read-only copy of:
 https://github.com/mozilla/build-mozharness
 
