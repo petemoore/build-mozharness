@@ -1,6 +1,6 @@
 # Mozharness
 This repository is a downstream read-only copy of:
-https://github.com/mozilla/build-mozharness
+http://hg.mozilla.org/build/mozharness/
 
 To submit a patch, please create a Mozharness bug under:
 https://bugzilla.mozilla.org/enter_bug.cgi?product=Release%20Engineering&component=Mozharness
