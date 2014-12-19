@@ -17,4 +17,11 @@ pip install tox
 tox
 ```
 
+Please note if you fork this repository and wish to run the tests in travis,
+you will need to enable your github fork in both travis and coveralls. In both
+cases you can log in with your github account, you do not need to set up a new
+one. To enable:
+* https://travis-ci.org/profile
+* https://coveralls.io/repos/new
+
 Happy contributing! =)
